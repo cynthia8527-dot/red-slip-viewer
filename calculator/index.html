@@ -2,104 +2,121 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>廠商查價計算機</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>產品／價格／製程知識庫</title>
   <style>
-    *{box-sizing:border-box} body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#f5f6f8;color:#202124}
-    .card{width:min(100%,1000px);background:#fff;border-radius:20px;padding:26px;box-shadow:0 10px 30px rgba(0,0,0,.08)}
-    h1{margin:0 0 6px;font-size:28px}.sub{margin:0 0 10px;color:#6b7280;font-size:14px}.badge{display:inline-block;margin-bottom:16px;padding:5px 9px;border-radius:999px;background:#fff3cd;color:#7a5a00;font-size:12px;font-weight:700}
-    label{display:block;margin:14px 0 7px;font-weight:700}.customer-wrap{max-width:430px} input,select{width:100%;border:1px solid #d7dbe2;border-radius:11px;padding:12px;font-size:16px;outline:none;background:#fff} input:focus,select:focus{border-color:#777;box-shadow:0 0 0 3px rgba(0,0,0,.05)}
-    .price-box{margin-top:18px;padding:16px;border:1px solid #e3e6ea;border-radius:16px;background:#fafafa}.price-head{display:flex;justify-content:space-between;align-items:end;gap:12px;margin-bottom:10px}.price-head h2{font-size:18px;margin:0}.price-note{font-size:12px;color:#777}
-    .price-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.price-card{border:1px solid #dfe3e8;background:#fff;border-radius:14px;overflow:hidden;display:flex;flex-direction:column}.fake-photo{height:110px;display:grid;place-items:center;background:linear-gradient(145deg,#d9dde2,#f8f9fa);position:relative;overflow:hidden}.metal{width:74px;height:36px;border-radius:18px;background:linear-gradient(90deg,#777,#ddd,#8e949b);box-shadow:0 9px 18px rgba(0,0,0,.2);transform:rotate(-8deg)}.metal.round{width:54px;height:54px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#f3f3f3,#8b9198 70%)}.metal.plate{width:86px;height:48px;border-radius:8px;transform:rotate(6deg)}.fake-label{position:absolute;bottom:6px;right:8px;font-size:10px;color:#666;background:rgba(255,255,255,.8);padding:3px 6px;border-radius:999px}
-    .price-body{padding:12px}.price-card strong{display:block;font-size:15px;margin-bottom:4px}.meta{font-size:12px;color:#777}.price{font-size:22px;font-weight:850;margin-top:8px}.card-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}.card-btn{border:0;border-radius:9px;padding:9px;font-size:13px;cursor:pointer}.detail-btn{background:#eceef1}.add-btn{background:#202124;color:#fff}
-    .section-title{margin-top:22px;font-weight:800}.rows{display:grid;gap:10px}.row-head,.row{display:grid;grid-template-columns:minmax(160px,1.5fr) 105px 115px 125px 44px;gap:8px;align-items:center}.row-head{font-size:12px;color:#777;padding:0 4px}.row{padding:10px;border:1px solid #e4e7eb;border-radius:14px;background:#fafafa}.input-wrap{position:relative}.unit{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#777;font-size:13px}.subtotal{text-align:right;font-weight:800;white-space:nowrap}.remove{border:0;border-radius:11px;height:44px;font-size:21px;background:#eceef1;cursor:pointer}.add{width:100%;margin-top:10px;border:1px dashed #aeb4bd;border-radius:12px;padding:12px;font-size:16px;background:#fff;cursor:pointer}.tip{margin-top:8px;color:#777;font-size:12px}
-    .stats{display:grid;grid-template-columns:1fr 1fr 1.25fr;gap:10px;margin-top:22px}.stat,.result{padding:16px;border-radius:14px;background:#f2f3f5;text-align:center}.stat small,.result small{display:block;color:#6b7280;margin-bottom:5px}.stat strong{font-size:22px}.amount{font-size:30px;font-weight:850}.summary{margin-top:18px;padding:14px;border:1px solid #e1e4e8;border-radius:14px;background:#fafafa;font-size:14px;line-height:1.7}.clear{width:100%;margin-top:14px;border:0;border-radius:12px;padding:13px;font-size:16px;cursor:pointer;background:#202124;color:#fff}.mobile-label{display:none}
-    dialog{width:min(92vw,560px);border:0;border-radius:18px;padding:0;box-shadow:0 20px 70px rgba(0,0,0,.25)} dialog::backdrop{background:rgba(0,0,0,.45)}.detail-photo{height:210px;display:grid;place-items:center;background:linear-gradient(145deg,#d4d8dd,#fafafa);position:relative}.detail-photo .metal{transform:scale(1.6) rotate(-8deg)}.detail-content{padding:20px}.detail-content h2{margin:0 0 6px}.detail-price{font-size:25px;font-weight:850;margin:8px 0 16px}.info-box{background:#f6f7f8;border-radius:12px;padding:12px;margin-top:10px}.info-box b{display:block;margin-bottom:5px}.detail-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:16px}.detail-actions button{border:0;border-radius:11px;padding:12px;font-size:15px;cursor:pointer}.close-btn{background:#eceef1}.detail-add{background:#202124;color:#fff}
-    @media(max-width:760px){body{padding:10px}.card{padding:18px}.price-grid{grid-template-columns:1fr 1fr}.row-head{display:none}.row{grid-template-columns:1fr 1fr 42px}.row .item-cell{grid-column:1/-2}.row .subtotal{grid-column:1/-1;text-align:left}.row .remove{grid-column:3;grid-row:1}.mobile-label{display:block;font-size:11px;color:#777;margin-bottom:4px}.stats{grid-template-columns:1fr}}
-    @media(max-width:480px){.price-grid{grid-template-columns:1fr}.fake-photo{height:130px}}
+    *{box-sizing:border-box}body{margin:0;background:#f5f6f8;color:#202124;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}main{width:min(1100px,calc(100% - 24px));margin:20px auto;background:#fff;border-radius:22px;padding:24px;box-shadow:0 10px 35px rgba(0,0,0,.08)}
+    h1{margin:0 0 6px;font-size:28px}.sub{margin:0;color:#6b7280}.badge{display:inline-block;margin-top:10px;padding:6px 10px;border-radius:999px;background:#fff3cd;color:#7a5a00;font-weight:700;font-size:12px}
+    .filters{display:grid;grid-template-columns:220px 1fr;gap:12px;margin:20px 0}label{font-size:13px;font-weight:700;display:block;margin-bottom:6px}select,input{width:100%;padding:12px 13px;border:1px solid #d7dbe2;border-radius:12px;background:#fff;font-size:16px}
+    .status{padding:14px;border-radius:14px;background:#f7f7f8;color:#666;margin-bottom:14px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.card{border:1px solid #e0e3e8;border-radius:16px;overflow:hidden;background:#fff;display:flex;flex-direction:column}.photo{height:130px;background:linear-gradient(145deg,#dfe3e7,#fafafa);display:grid;place-items:center;position:relative}.metal{width:76px;height:38px;border-radius:18px;background:linear-gradient(90deg,#777,#eee,#9298a0);box-shadow:0 8px 18px rgba(0,0,0,.18);transform:rotate(-8deg)}.fake{position:absolute;right:8px;bottom:7px;background:rgba(255,255,255,.84);padding:3px 7px;border-radius:999px;font-size:10px;color:#666}.body{padding:14px;display:flex;flex-direction:column;gap:7px;height:100%}.vendor{font-size:12px;color:#6b7280}.name{font-size:18px;font-weight:850}.meta{font-size:13px;color:#555}.price{font-size:24px;font-weight:900;margin-top:3px}.process{font-size:13px;line-height:1.6;color:#4b5563;background:#f7f7f8;border-radius:10px;padding:9px}.actions{margin-top:auto;padding-top:6px}.actions button{width:100%;border:0;border-radius:10px;padding:10px;background:#202124;color:#fff;font-size:14px;cursor:pointer}.empty{grid-column:1/-1;padding:35px;text-align:center;color:#777;background:#fafafa;border:1px dashed #ccd1d7;border-radius:14px}
+    dialog{width:min(92vw,560px);border:0;border-radius:18px;padding:0;box-shadow:0 24px 80px rgba(0,0,0,.28)}dialog::backdrop{background:rgba(0,0,0,.46)}.detail-photo{height:200px;background:linear-gradient(145deg,#dfe3e7,#fafafa);display:grid;place-items:center;position:relative}.detail-photo .metal{transform:scale(1.55) rotate(-8deg)}.detail{padding:20px}.detail h2{margin:0 0 5px}.detail-price{font-size:27px;font-weight:900;margin:10px 0}.info{background:#f6f7f8;border-radius:12px;padding:12px;margin-top:10px;line-height:1.6}.info b{display:block;margin-bottom:4px}.close{width:100%;margin-top:16px;border:0;border-radius:11px;padding:12px;background:#202124;color:#fff;font-size:15px;cursor:pointer}
+    @media(max-width:820px){main{padding:18px}.grid{grid-template-columns:1fr 1fr}.filters{grid-template-columns:1fr}}
+    @media(max-width:520px){main{width:min(100% - 12px,1100px);margin:8px auto;padding:15px;border-radius:16px}.grid{grid-template-columns:1fr}.photo{height:150px}h1{font-size:24px}}
   </style>
 </head>
 <body>
-<main class="card">
-  <h1>廠商查價計算機</h1>
-  <p class="sub">查價格、看產品、記製程，點一下就能加入計算。</p>
-  <div class="badge">⚠ 目前全部都是示範假資料／假產品圖</div>
+<main>
+  <h1>產品／價格／製程知識庫</h1>
+  <p class="sub">查產品、材料、製程與廠商價格。這一頁不做計算。</p>
+  <div class="badge">🧪 目前是 Supabase 測試資料，還沒放真客戶資料</div>
 
-  <div class="customer-wrap"><label for="customer">廠商</label><select id="customer"></select></div>
-
-  <section class="price-box">
-    <div class="price-head"><h2 id="priceTitle">廠商價格表</h2><span class="price-note">看詳細可查製作備註</span></div>
-    <div id="priceGrid" class="price-grid"></div>
+  <section class="filters">
+    <div><label for="vendor">廠商</label><select id="vendor"><option value="">全部廠商</option></select></div>
+    <div><label for="search">搜尋</label><input id="search" placeholder="搜尋產品、材料、製程…" /></div>
   </section>
 
-  <div class="section-title">計價明細</div>
-  <div class="row-head"><span>品名／處理方式</span><span>單價</span><span>重量</span><span style="text-align:right">小計</span><span></span></div>
-  <div id="rows" class="rows"></div>
-  <button id="add" class="add" type="button">＋ 新增空白一筆</button>
-  <div class="tip">同一家廠商可有多種價格；每筆單價也可以臨時手動修改。</div>
-
-  <section class="stats"><div class="stat"><small>筆數</small><strong id="count">0 筆</strong></div><div class="stat"><small>總重量</small><strong id="totalWeight">0 kg</strong></div><div class="result"><small>總金額</small><div class="amount" id="amount">NT$ 0</div></div></section>
-  <div class="summary" id="summary"></div>
-  <button id="clear" class="clear" type="button">清空重新計算</button>
+  <div id="status" class="status">正在讀取雲端資料…</div>
+  <section id="grid" class="grid"></section>
 </main>
 
-<dialog id="detailDialog">
-  <div id="detailPhoto" class="detail-photo"><div class="metal"></div><span class="fake-label">示意產品圖</span></div>
-  <div class="detail-content">
-    <h2 id="detailName"></h2>
-    <div id="detailMeta" class="meta"></div>
-    <div id="detailPrice" class="detail-price"></div>
-    <div class="info-box"><b>⚙️ 製作方式</b><div id="detailProcess"></div></div>
-    <div class="info-box"><b>📝 注意事項</b><div id="detailNote"></div></div>
-    <div class="detail-actions"><button class="close-btn" id="closeDetail">關閉</button><button class="detail-add" id="addFromDetail">＋ 加入計算</button></div>
+<dialog id="dialog">
+  <div class="detail-photo"><div class="metal"></div><span class="fake">產品圖欄位已預留</span></div>
+  <div class="detail">
+    <h2 id="dName"></h2>
+    <div id="dVendor" class="vendor"></div>
+    <div id="dPrice" class="detail-price"></div>
+    <div class="info"><b>材料</b><span id="dMaterial"></span></div>
+    <div class="info"><b>標準製程</b><span id="dProcess"></span></div>
+    <div class="info"><b>製程／注意事項</b><span id="dNotes"></span></div>
+    <div class="info"><b>價格備註</b><span id="dPriceNote"></span></div>
+    <button id="close" class="close">關閉</button>
   </div>
 </dialog>
 
 <script>
-const demoData={
- '測試甲精密':[
-  {name:'一般研磨',material:'鐵件',unit:'kg',price:10,shape:'plate',process:'粗石震動 45 分鐘 → 清洗 → 細石 30 分鐘。',note:'大件與小件分開，避免互撞。'},
-  {name:'研亮',material:'鐵件',unit:'kg',price:15,shape:'round',process:'細研完成後換亮石，加研亮劑約 35 分鐘。',note:'表面不可殘留黑粉。'},
-  {name:'去毛邊',material:'一般件',unit:'kg',price:8,shape:'bar',process:'粗石低速跑 25 分鐘，以去除銳角為主。',note:'不要過度研磨尺寸。'},
-  {name:'細件研磨',material:'小五金',unit:'kg',price:18,shape:'round',process:'小石材分兩段研磨，共約 60 分鐘。',note:'細件需用網籃避免流失。'},
-  {name:'高亮小件',material:'小五金',unit:'kg',price:24,shape:'round',process:'細研 → 清洗 → 高亮液研亮 40 分鐘。',note:'出桶後立刻吹乾。'}],
- '測試壬金屬':[
-  {name:'震動研磨',material:'鐵',unit:'kg',price:8,shape:'bar',process:'粗石＋清潔劑震動 40 分鐘。',note:'油污太重先脫脂。'},
-  {name:'精細研磨',material:'鐵',unit:'kg',price:12,shape:'plate',process:'中石 30 分鐘 → 細石 45 分鐘。',note:'注意孔洞是否卡石。'},
-  {name:'研亮處理',material:'鐵',unit:'kg',price:16,shape:'round',process:'細石完成後換亮石研亮 30 分鐘。',note:'研亮前一定要洗乾淨。'},
-  {name:'去毛邊',material:'五金件',unit:'kg',price:10,shape:'bar',process:'粗石短時間處理約 20 分鐘。',note:'尖角只需倒鈍，不可吃料過多。'},
-  {name:'特殊件加工',material:'混合',unit:'kg',price:27,shape:'plate',process:'先小量試跑，再依表面狀況調整石材與時間。',note:'第一次來料一定留樣確認。'}],
- '測試癸精工':[
-  {name:'一般研磨',material:'SUS304',unit:'kg',price:13,shape:'plate',process:'中石 50 分鐘 → 清洗。',note:'不可與鐵件混桶。'},
-  {name:'細研',material:'SUS304',unit:'kg',price:18,shape:'round',process:'細石 60 分鐘，水量略高。',note:'確認孔內無殘石。'},
-  {name:'高亮研磨',material:'SUS316',unit:'kg',price:29,shape:'bar',process:'細研後亮石＋研亮劑 45 分鐘。',note:'表面要求高，需獨立處理。'},
-  {name:'小件處理',material:'不鏽鋼',unit:'kg',price:21,shape:'round',process:'小型細石低速處理 50 分鐘。',note:'使用細網籃收料。'},
-  {name:'人工挑料',material:'特殊件',unit:'kg',price:38,shape:'plate',process:'機台完成後人工逐件篩選與補處理。',note:'瑕疵件另外裝袋標示。'}],
- '測試子五金':[
-  {name:'粗研',material:'鋁件',unit:'kg',price:9,shape:'plate',process:'軟性粗石 30 分鐘。',note:'鋁件怕撞傷，裝載量降低。'},
-  {name:'細研',material:'鋁件',unit:'kg',price:14,shape:'round',process:'細石 35 分鐘 → 清洗。',note:'水要保持乾淨。'},
-  {name:'亮面',material:'鋁件',unit:'kg',price:19,shape:'bar',process:'研亮石＋專用藥水約 30 分鐘。',note:'完成後不可堆疊碰傷。'},
-  {name:'去毛刺',material:'鋁件',unit:'kg',price:11,shape:'plate',process:'低磨耗石材短跑 20 分鐘。',note:'重點是去刺，不追求亮度。'},
-  {name:'精密小件',material:'鋁合金',unit:'kg',price:33,shape:'round',process:'小石材分段處理並人工檢查。',note:'尺寸公差小，先做試樣。'}]
-};
+const API='https://icqdmzndjmxffnlciijs.supabase.co/functions/v1/catalog-public';
+const grid=document.getElementById('grid'),statusEl=document.getElementById('status'),vendorSel=document.getElementById('vendor'),searchEl=document.getElementById('search');
+const dialog=document.getElementById('dialog');
+const fmt=new Intl.NumberFormat('zh-TW',{maximumFractionDigits:2});
+let products=[],prices=[],rows=[];
 
-const customer=document.getElementById('customer'), priceGrid=document.getElementById('priceGrid'), priceTitle=document.getElementById('priceTitle'), rows=document.getElementById('rows'), add=document.getElementById('add'), count=document.getElementById('count'), totalWeight=document.getElementById('totalWeight'), amount=document.getElementById('amount'), summary=document.getElementById('summary'), clear=document.getElementById('clear');
-const dialog=document.getElementById('detailDialog'), detailName=document.getElementById('detailName'), detailMeta=document.getElementById('detailMeta'), detailPrice=document.getElementById('detailPrice'), detailProcess=document.getElementById('detailProcess'), detailNote=document.getElementById('detailNote'), detailPhoto=document.getElementById('detailPhoto'), closeDetail=document.getElementById('closeDetail'), addFromDetail=document.getElementById('addFromDetail');
-const fmt=new Intl.NumberFormat('zh-TW',{maximumFractionDigits:2}); let selectedDetailIndex=0;
+function esc(s=''){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+function text(v,fallback='—'){return v===null||v===undefined||v===''?fallback:String(v)}
 
-Object.keys(demoData).forEach(name=>{const o=document.createElement('option');o.value=name;o.textContent=name;customer.append(o)});
-function currentItems(){return demoData[customer.value]||[]}
-function metalClass(shape){return shape==='round'?'metal round':shape==='plate'?'metal plate':'metal'}
-function renderPriceCards(){const list=currentItems();priceTitle.textContent=`${customer.value}｜價格表`;priceGrid.innerHTML='';list.forEach((e,i)=>{const card=document.createElement('div');card.className='price-card';card.innerHTML=`<div class="fake-photo"><div class="${metalClass(e.shape)}"></div><span class="fake-label">示意產品圖</span></div><div class="price-body"><strong>${escapeHtml(e.name)}</strong><div class="meta">${escapeHtml(e.material)}｜${escapeHtml(e.unit)}</div><div class="price">NT$ ${fmt.format(e.price)}</div><div class="card-actions"><button class="card-btn detail-btn">看詳細</button><button class="card-btn add-btn">＋ 加入計算</button></div></div>`;card.querySelector('.detail-btn').onclick=()=>openDetail(i);card.querySelector('.add-btn').onclick=()=>{const r=addRow({itemIndex:i,priceValue:e.price});r.querySelector('.weight-input').focus()};priceGrid.append(card)})}
-function openDetail(i){selectedDetailIndex=i;const e=currentItems()[i];detailName.textContent=e.name;detailMeta.textContent=`${e.material}｜${e.unit}`;detailPrice.textContent=`NT$ ${fmt.format(e.price)} / ${e.unit}`;detailProcess.textContent=e.process;detailNote.textContent=e.note;detailPhoto.innerHTML=`<div class="${metalClass(e.shape)}"></div><span class="fake-label">示意產品圖</span>`;dialog.showModal()}
-closeDetail.onclick=()=>dialog.close();addFromDetail.onclick=()=>{const e=currentItems()[selectedDetailIndex];const r=addRow({itemIndex:selectedDetailIndex,priceValue:e.price});dialog.close();r.querySelector('.weight-input').focus()};
-function fillItemSelect(sel,index=0){sel.innerHTML='';currentItems().forEach((e,i)=>{const o=document.createElement('option');o.value=i;o.textContent=e.name;sel.append(o)});sel.value=Math.min(index,currentItems().length-1)}
-function addRow({itemIndex=0,priceValue='',weightValue=''}={}){const row=document.createElement('div');row.className='row';const item=document.createElement('div');item.className='item-cell';item.innerHTML='<span class="mobile-label">品名／處理方式</span>';const s=document.createElement('select');s.className='item-select';fillItemSelect(s,itemIndex);item.append(s);const pc=document.createElement('div');pc.className='input-wrap';pc.innerHTML='<span class="mobile-label">單價</span>';const p=document.createElement('input');p.className='price-input';p.type='number';p.inputMode='decimal';p.min='0';p.step='any';const pu=document.createElement('span');pu.className='unit';pu.textContent='元';pc.append(p,pu);const wc=document.createElement('div');wc.className='input-wrap';wc.innerHTML='<span class="mobile-label">重量</span>';const w=document.createElement('input');w.className='weight-input';w.type='number';w.inputMode='decimal';w.min='0';w.step='any';w.value=weightValue;const wu=document.createElement('span');wu.className='unit';wu.textContent='kg';wc.append(w,wu);const sub=document.createElement('div');sub.className='subtotal';sub.textContent='小計 NT$ 0';const rm=document.createElement('button');rm.className='remove';rm.type='button';rm.textContent='×';row.append(item,pc,wc,sub,rm);rows.append(row);p.value=priceValue!==''?priceValue:(currentItems()[itemIndex]?.price??'');s.onchange=()=>{p.value=currentItems()[Number(s.value)]?.price??'';calculate()};p.oninput=calculate;w.oninput=calculate;w.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();addRow().querySelector('.weight-input').focus()}};rm.onclick=()=>{row.remove();if(!rows.children.length)addRow();calculate()};calculate();return row}
-function calculate(){let c=0,tw=0,ta=0,lines=[];[...rows.children].forEach(r=>{const s=r.querySelector('.item-select'),p=Number(r.querySelector('.price-input').value)||0,wEl=r.querySelector('.weight-input'),w=Number(wEl.value)||0,sub=p*w;r.querySelector('.subtotal').textContent=`小計 NT$ ${fmt.format(sub)}`;if(wEl.value!==''){c++;tw+=w;ta+=sub;lines.push(`${escapeHtml(currentItems()[Number(s.value)]?.name||'未選品名')}：${fmt.format(w)} kg × ${fmt.format(p)} = NT$ ${fmt.format(sub)}`)}});count.textContent=`${c} 筆`;totalWeight.textContent=`${fmt.format(tw)} kg`;amount.textContent=`NT$ ${fmt.format(ta)}`;summary.innerHTML=`<strong>${escapeHtml(customer.value)}</strong><br>${lines.length?lines.join('<br>'):'尚未輸入重量'}<br><strong>合計：${fmt.format(tw)} kg｜NT$ ${fmt.format(ta)}</strong>`}
-function resetForCustomer(){rows.innerHTML='';renderPriceCards();addRow();calculate()}
-function escapeHtml(t){return String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-customer.onchange=resetForCustomer;add.onclick=()=>addRow().querySelector('.weight-input').focus();clear.onclick=()=>{rows.innerHTML='';addRow();calculate()};
-resetForCustomer();
+async function load(){
+  try{
+    const r=await fetch(API);
+    if(!r.ok)throw new Error(`${r.status} ${await r.text()}`);
+    const data=await r.json();
+    products=data.products||[];prices=data.prices||[];
+    const pMap=new Map(products.map(p=>[p.id,p]));
+    rows=prices.map(x=>({...x,product:pMap.get(x.product_id)})).filter(x=>x.product);
+    const vendors=[...new Set(rows.map(x=>x.vendor_name))].sort((a,b)=>a.localeCompare(b,'zh-Hant'));
+    vendorSel.innerHTML='<option value="">全部廠商</option>'+vendors.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+    statusEl.textContent=`已從 Supabase 讀取 ${products.length} 個產品、${prices.length} 筆價格資料`;
+    render();
+  }catch(err){
+    console.error(err);
+    statusEl.textContent='讀取失敗，請稍後重新整理。';
+    grid.innerHTML='<div class="empty">目前無法讀取雲端資料</div>';
+  }
+}
+
+function filtered(){
+  const v=vendorSel.value,q=searchEl.value.trim().toLowerCase();
+  return rows.filter(r=>{
+    if(v&&r.vendor_name!==v)return false;
+    if(!q)return true;
+    const p=r.product;
+    return [r.vendor_name,p.name,p.material,p.standard_process,p.process_notes,r.process_name,r.note].some(x=>String(x||'').toLowerCase().includes(q));
+  });
+}
+
+function render(){
+  const list=filtered();
+  if(!list.length){grid.innerHTML='<div class="empty">沒有符合的資料</div>';return}
+  grid.innerHTML=list.map((r,i)=>{
+    const p=r.product;
+    return `<article class="card">
+      <div class="photo"><div class="metal"></div><span class="fake">產品圖待接</span></div>
+      <div class="body">
+        <div class="vendor">${esc(r.vendor_name)}</div>
+        <div class="name">${esc(p.name)}</div>
+        <div class="meta">${esc(text(p.material))}｜${esc(text(r.unit))}</div>
+        <div class="price">NT$ ${fmt.format(Number(r.unit_price)||0)} <span style="font-size:13px;font-weight:600">/ ${esc(text(r.unit))}</span></div>
+        <div class="process">⚙️ ${esc(text(r.process_name||p.standard_process))}</div>
+        <div class="actions"><button data-i="${i}">看詳細</button></div>
+      </div>
+    </article>`
+  }).join('');
+  [...grid.querySelectorAll('button[data-i]')].forEach((btn,idx)=>btn.onclick=()=>openDetail(list[idx]));
+}
+
+function openDetail(r){
+  const p=r.product;
+  document.getElementById('dName').textContent=p.name;
+  document.getElementById('dVendor').textContent=r.vendor_name;
+  document.getElementById('dPrice').textContent=`NT$ ${fmt.format(Number(r.unit_price)||0)} / ${text(r.unit)}`;
+  document.getElementById('dMaterial').textContent=text(p.material);
+  document.getElementById('dProcess').textContent=text(r.process_name||p.standard_process);
+  document.getElementById('dNotes').textContent=text(p.process_notes);
+  document.getElementById('dPriceNote').textContent=text(r.note);
+  dialog.showModal();
+}
+
+document.getElementById('close').onclick=()=>dialog.close();
+vendorSel.onchange=render;searchEl.oninput=render;
+load();
 </script>
 </body>
 </html>
