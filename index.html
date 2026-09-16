@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self'; img-src 'self' blob: data:; worker-src blob: https://cdnjs.cloudflare.com; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" />
+  <title>紅單掃描看片器</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>紅單掃描看片器</h1>
+      <p>安全測試版：檔案只在目前瀏覽器處理，不連 Google Drive。</p>
+    </div>
+    <div class="safe">🔒 本機處理</div>
+  </header>
+
+  <main>
+    <section class="card setup">
+      <div class="uploads">
+        <label class="dropbox">
+          <strong>① 選紅單</strong>
+          <span>PDF / JPG / PNG，可多選</span>
+          <input id="slipInput" type="file" accept="application/pdf,image/*" multiple />
+          <small id="slipCount">尚未選擇</small>
+        </label>
+        <label class="dropbox">
+          <strong>② 選會計 Excel</strong>
+          <span>xlsx / xlsm / xls，可多選</span>
+          <input id="excelInput" type="file" accept=".xlsx,.xlsm,.xls" multiple />
+          <small id="excelCount">尚未選擇</small>
+        </label>
+      </div>
+      <div class="actions">
+        <button id="startBtn" class="primary">開始看片</button>
+        <button id="exportBtn">下載校正紀錄 CSV</button>
+        <button id="clearBtn">清除本機紀錄</button>
+      </div>
+      <p id="status" class="status">這一版不會要求 Google 帳號授權。</p>
+    </section>
+
+    <section id="viewer" class="viewer hidden">
+      <div class="card preview-card">
+        <div class="panel-head">
+          <div><strong id="fileName">—</strong> <span id="pageLabel" class="muted"></span></div>
+          <div class="toolbar">
+            <button id="prevBtn">← 上一張</button>
+            <button id="nextBtn">下一張 →</button>
+            <button id="rotateBtn">↻ 旋轉</button>
+            <button id="zoomOutBtn">－</button>
+            <span id="zoomLabel" class="muted">100%</span>
+            <button id="zoomInBtn">＋</button>
+          </div>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="pdfCanvas"></canvas>
+          <img id="imageView" class="hidden" alt="紅單預覽" />
+          <div id="emptyPreview" class="empty">選好紅單後會顯示在這裡。</div>
+        </div>
+      </div>
+
+      <aside class="card form-card">
+        <div class="panel-head">
+          <div><strong>紅單資料</strong><div id="matchBadge" class="badge neutral">尚未比對</div></div>
+          <span id="progress" class="muted"></span>
+        </div>
+        <div class="fields">
+          <label>紅單號<input id="redNo" /></label>
+          <label>日期<input id="date" /></label>
+          <label>客戶<input id="customer" /></label>
+          <label>品名／處理方式<input id="item" /></label>
+          <label>材質<input id="material" /></label>
+          <div class="two"><label>重量<input id="weight" /></label><label>單位<input id="unit" /></label></div>
+          <label>單價<input id="price" /></label>
+        </div>
+        <div class="actions pad">
+          <button id="searchBtn">用紅單號找會計答案</button>
+          <button id="applyBtn" disabled>套用會計欄位</button>
+        </div>
+        <div id="accountingResult" class="result">找到會計資料後會顯示在這裡。</div>
+        <label class="notes">備註<textarea id="notes" rows="2"></textarea></label>
+        <div class="actions pad">
+          <button id="confirmBtn" class="ok">✓ 確認完成</button>
+          <button id="manualBtn" class="warn">⚠ 待人工確認</button>
+        </div>
+        <p id="saveStatus" class="status pad"></p>
+      </aside>
+    </section>
+  </main>
+
+  <footer>公開的是網頁程式碼；你選進來的紅單與 Excel 不會被上傳到 GitHub。</footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
