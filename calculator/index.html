@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>研磨重量計算器</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; display:grid; place-items:center; padding:24px; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; background:#f5f6f8; color:#202124; }
+    .card { width:min(100%,430px); background:#fff; border-radius:20px; padding:28px; box-shadow:0 10px 30px rgba(0,0,0,.08); }
+    h1 { margin:0 0 6px; font-size:26px; }
+    .sub { margin:0 0 24px; color:#6b7280; font-size:14px; }
+    label { display:block; margin:16px 0 7px; font-weight:700; }
+    .input-wrap { position:relative; }
+    input { width:100%; border:1px solid #d7dbe2; border-radius:12px; padding:14px 54px 14px 14px; font-size:18px; outline:none; }
+    input:focus { border-color:#777; box-shadow:0 0 0 3px rgba(0,0,0,.05); }
+    .unit { position:absolute; right:14px; top:50%; transform:translateY(-50%); color:#777; }
+    .result { margin-top:24px; padding:20px; border-radius:15px; background:#f2f3f5; text-align:center; }
+    .result small { display:block; color:#6b7280; margin-bottom:5px; }
+    .amount { font-size:34px; font-weight:800; }
+    button { width:100%; margin-top:14px; border:0; border-radius:12px; padding:13px; font-size:16px; cursor:pointer; background:#202124; color:#fff; }
+    .formula { margin-top:12px; min-height:20px; text-align:center; color:#777; font-size:13px; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>研磨重量計算器</h1>
+    <p class="sub">輸入重量與單價，自動計算金額。</p>
+    <label for="weight">重量</label>
+    <div class="input-wrap"><input id="weight" type="number" inputmode="decimal" min="0" step="any" placeholder="例如 600"><span class="unit">kg</span></div>
+    <label for="price">單價</label>
+    <div class="input-wrap"><input id="price" type="number" inputmode="decimal" min="0" step="any" placeholder="例如 10"><span class="unit">元</span></div>
+    <section class="result" aria-live="polite"><small>金額</small><div class="amount" id="amount">NT$ 0</div></section>
+    <div class="formula" id="formula"></div>
+    <button type="button" id="clear">清除</button>
+  </main>
+  <script>
+    const weight=document.getElementById('weight'), price=document.getElementById('price'), amount=document.getElementById('amount'), formula=document.getElementById('formula'), clear=document.getElementById('clear');
+    const fmt=new Intl.NumberFormat('zh-TW',{maximumFractionDigits:2});
+    function calculate(){ const w=Number(weight.value), p=Number(price.value), total=(Number.isFinite(w)?w:0)*(Number.isFinite(p)?p:0); amount.textContent=`NT$ ${fmt.format(total)}`; formula.textContent=weight.value&&price.value?`${fmt.format(w)} kg × ${fmt.format(p)} 元 = ${fmt.format(total)} 元`:''; }
+    weight.addEventListener('input',calculate); price.addEventListener('input',calculate); clear.addEventListener('click',()=>{weight.value='';price.value='';calculate();weight.focus();});
+  </script>
+</body>
+</html>
