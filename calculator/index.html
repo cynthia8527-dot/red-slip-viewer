@@ -3,40 +3,29 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>研磨重量計算器</title>
+  <title>研磨計價測試</title>
   <style>
-    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#f5f6f8;color:#202124}.card{width:min(100%,560px);background:#fff;border-radius:20px;padding:28px;box-shadow:0 10px 30px rgba(0,0,0,.08)}h1{margin:0 0 6px;font-size:26px}.sub{margin:0 0 10px;color:#6b7280;font-size:14px}.badge{display:inline-block;margin-bottom:14px;padding:5px 9px;border-radius:999px;background:#fff3cd;color:#7a5a00;font-size:12px;font-weight:700}.meta{display:grid;grid-template-columns:1fr 1fr;gap:10px}label{display:block;margin:16px 0 7px;font-weight:700}.rows{display:grid;gap:8px}.row-head,.row{display:grid;grid-template-columns:minmax(0,1fr) 120px 46px;gap:8px;align-items:center}.row-head{font-size:12px;color:#777;padding:0 4px}.input-wrap{position:relative}input,select{width:100%;border:1px solid #d7dbe2;border-radius:12px;padding:14px;font-size:17px;outline:none;background:#fff}input[type="number"]{padding-right:48px}input:focus,select:focus{border-color:#777;box-shadow:0 0 0 3px rgba(0,0,0,.05)}.unit{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#777}.subtotal{text-align:right;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.remove{margin:0;border:0;border-radius:12px;height:50px;font-size:22px;background:#eceef1;color:#444;cursor:pointer}.add{width:100%;margin-top:10px;border:1px dashed #aeb4bd;border-radius:12px;padding:12px;font-size:16px;background:#fff;cursor:pointer}.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:22px}.stat,.result{padding:16px;border-radius:14px;background:#f2f3f5;text-align:center}.stat small,.result small{display:block;color:#6b7280;margin-bottom:5px}.stat strong{font-size:22px}.result{grid-column:1/-1}.amount{font-size:34px;font-weight:800}.formula{margin-top:12px;min-height:20px;text-align:center;color:#777;font-size:13px}.clear{width:100%;margin-top:14px;border:0;border-radius:12px;padding:13px;font-size:16px;cursor:pointer;background:#202124;color:#fff}.tip{margin-top:8px;color:#777;font-size:12px}.summary{margin-top:18px;padding:14px;border:1px solid #e1e4e8;border-radius:14px;background:#fafafa;font-size:14px;line-height:1.7}.summary strong{font-size:16px}@media(max-width:460px){.card{padding:20px}.meta{grid-template-columns:1fr}.row-head,.row{grid-template-columns:minmax(0,1fr) 96px 42px}.subtotal{font-size:14px}.stats{grid-template-columns:1fr}.result{grid-column:auto}}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#f5f6f8;color:#202124}.card{width:min(100%,820px);background:#fff;border-radius:20px;padding:28px;box-shadow:0 10px 30px rgba(0,0,0,.08)}h1{margin:0 0 6px;font-size:26px}.sub{margin:0 0 10px;color:#6b7280;font-size:14px}.badge{display:inline-block;margin-bottom:14px;padding:5px 9px;border-radius:999px;background:#fff3cd;color:#7a5a00;font-size:12px;font-weight:700}label{display:block;margin:16px 0 7px;font-weight:700}.customer-wrap{max-width:420px}.rows{display:grid;gap:10px}.row-head,.row{display:grid;grid-template-columns:minmax(150px,1.5fr) 105px 115px 120px 44px;gap:8px;align-items:center}.row-head{font-size:12px;color:#777;padding:0 4px}.row{padding:10px;border:1px solid #e4e7eb;border-radius:14px;background:#fafafa}.input-wrap{position:relative}input,select{width:100%;border:1px solid #d7dbe2;border-radius:11px;padding:12px;font-size:16px;outline:none;background:#fff}input[type="number"]{padding-right:42px}input:focus,select:focus{border-color:#777;box-shadow:0 0 0 3px rgba(0,0,0,.05)}.unit{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#777;font-size:13px}.subtotal{text-align:right;font-weight:800;white-space:nowrap}.remove{margin:0;border:0;border-radius:11px;height:44px;font-size:21px;background:#eceef1;color:#444;cursor:pointer}.add{width:100%;margin-top:10px;border:1px dashed #aeb4bd;border-radius:12px;padding:12px;font-size:16px;background:#fff;cursor:pointer}.stats{display:grid;grid-template-columns:1fr 1fr 1.25fr;gap:10px;margin-top:22px}.stat,.result{padding:16px;border-radius:14px;background:#f2f3f5;text-align:center}.stat small,.result small{display:block;color:#6b7280;margin-bottom:5px}.stat strong{font-size:22px}.amount{font-size:30px;font-weight:800}.summary{margin-top:18px;padding:14px;border:1px solid #e1e4e8;border-radius:14px;background:#fafafa;font-size:14px;line-height:1.7}.summary strong{font-size:16px}.clear{width:100%;margin-top:14px;border:0;border-radius:12px;padding:13px;font-size:16px;cursor:pointer;background:#202124;color:#fff}.tip{margin-top:8px;color:#777;font-size:12px}.mobile-label{display:none}
+    @media(max-width:700px){body{padding:12px}.card{padding:18px}.row-head{display:none}.row{grid-template-columns:1fr 1fr 42px;gap:8px}.row .item-cell{grid-column:1/-2}.row .subtotal{grid-column:1/-1;text-align:left;padding-top:2px}.row .remove{grid-column:3;grid-row:1}.mobile-label{display:block;font-size:11px;color:#777;margin:0 0 4px}.stats{grid-template-columns:1fr}.amount{font-size:28px}}
   </style>
 </head>
 <body>
   <main class="card">
-    <h1>研磨重量計算器</h1>
-    <p class="sub">試做「很多公司、每家公司多種價格」的樣子。</p>
+    <h1>研磨計價測試</h1>
+    <p class="sub">同一個客戶，每一筆可以是不同品名、不同單價。</p>
     <div class="badge">⚠ 以下全部是示範假資料</div>
 
-    <div class="meta">
-      <div>
-        <label for="customer">客戶名稱</label>
-        <input id="customer" list="customerList" value="測試甲公司" placeholder="輸入或搜尋客戶">
-        <datalist id="customerList"></datalist>
-      </div>
-      <div>
-        <label for="item">品名／處理方式</label>
-        <select id="item"></select>
-      </div>
+    <div class="customer-wrap">
+      <label for="customer">客戶名稱</label>
+      <input id="customer" list="customerList" value="測試甲公司" placeholder="輸入或搜尋客戶">
+      <datalist id="customerList"></datalist>
     </div>
 
-    <label for="price">單價</label>
-    <div class="input-wrap">
-      <input id="price" type="number" inputmode="decimal" min="0" step="any" placeholder="自動帶入，也可手動改">
-      <span class="unit">元</span>
-    </div>
-
-    <label>重量</label>
-    <div class="row-head"><span>重量</span><span style="text-align:right">小計</span><span></span></div>
+    <label>明細</label>
+    <div class="row-head"><span>品名／處理方式</span><span>單價</span><span>重量</span><span style="text-align:right">小計</span><span></span></div>
     <div id="rows" class="rows"></div>
     <button id="add" class="add" type="button">＋ 新增一筆</button>
-    <div class="tip">在重量欄按 Enter，也會直接新增下一筆。</div>
+    <div class="tip">每一筆都可以選不同處理方式，單價會自動帶入，也可以手動修改。</div>
 
     <section class="stats" aria-live="polite">
       <div class="stat"><small>筆數</small><strong id="count">0 筆</strong></div>
@@ -45,7 +34,6 @@
     </section>
 
     <div class="summary" id="summary"></div>
-    <div class="formula" id="formula"></div>
     <button type="button" id="clear" class="clear">全部清除</button>
   </main>
 
@@ -81,14 +69,11 @@
 
     const rows=document.getElementById('rows');
     const add=document.getElementById('add');
-    const price=document.getElementById('price');
     const customer=document.getElementById('customer');
     const customerList=document.getElementById('customerList');
-    const item=document.getElementById('item');
     const count=document.getElementById('count');
     const totalWeight=document.getElementById('totalWeight');
     const amount=document.getElementById('amount');
-    const formula=document.getElementById('formula');
     const summary=document.getElementById('summary');
     const clear=document.getElementById('clear');
     const fmt=new Intl.NumberFormat('zh-TW',{maximumFractionDigits:2});
@@ -99,81 +84,175 @@
       customerList.append(option);
     });
 
-    function loadItems(){
-      const list=demoData[customer.value.trim()];
-      item.innerHTML='';
-      if(!list){
+    function currentItems(){
+      return demoData[customer.value.trim()]||[];
+    }
+
+    function fillItemSelect(select,preferredIndex=0){
+      const list=currentItems();
+      select.innerHTML='';
+      if(!list.length){
         const option=document.createElement('option');
         option.value='';
-        option.textContent='請先選擇示範客戶';
-        item.append(option);
-        price.value='';
-        calculate();
+        option.textContent='請先選擇客戶';
+        select.append(option);
         return;
       }
       list.forEach((entry,index)=>{
         const option=document.createElement('option');
         option.value=String(index);
-        option.textContent=`${entry.name}｜${entry.price} 元`;
-        item.append(option);
+        option.textContent=entry.name;
+        select.append(option);
       });
-      item.value='0';
-      price.value=list[0].price;
+      select.value=String(Math.min(preferredIndex,list.length-1));
+    }
+
+    function syncRowPrice(row){
+      const list=currentItems();
+      const itemSelect=row.querySelector('.item-select');
+      const priceInput=row.querySelector('.price-input');
+      const entry=list[Number(itemSelect.value)];
+      priceInput.value=entry?entry.price:'';
       calculate();
     }
 
-    function syncPrice(){
-      const list=demoData[customer.value.trim()];
-      const entry=list?.[Number(item.value)];
-      if(entry) price.value=entry.price;
-      calculate();
-    }
-
-    function addRow(value=''){
+    function addRow({itemIndex=0,priceValue='',weightValue=''}={}){
       const row=document.createElement('div');
       row.className='row';
-      const wrap=document.createElement('div');
-      wrap.className='input-wrap';
-      const input=document.createElement('input');
-      input.type='number'; input.inputMode='decimal'; input.min='0'; input.step='any'; input.placeholder='輸入重量'; input.value=value;
-      input.addEventListener('input',calculate);
-      input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addRow().focus();}});
-      const unit=document.createElement('span'); unit.className='unit'; unit.textContent='kg';
-      const subtotal=document.createElement('div'); subtotal.className='subtotal'; subtotal.textContent='NT$ 0';
-      const remove=document.createElement('button'); remove.type='button'; remove.className='remove'; remove.textContent='×'; remove.setAttribute('aria-label','刪除這一筆');
-      remove.addEventListener('click',()=>{row.remove();if(!rows.children.length)addRow();calculate();});
-      wrap.append(input,unit); row.append(wrap,subtotal,remove); rows.append(row); calculate(); return input;
+
+      const itemCell=document.createElement('div');
+      itemCell.className='item-cell';
+      itemCell.innerHTML='<span class="mobile-label">品名／處理方式</span>';
+      const itemSelect=document.createElement('select');
+      itemSelect.className='item-select';
+      fillItemSelect(itemSelect,itemIndex);
+      itemCell.append(itemSelect);
+
+      const priceCell=document.createElement('div');
+      priceCell.className='input-wrap';
+      priceCell.insertAdjacentHTML('beforeend','<span class="mobile-label">單價</span>');
+      const priceInput=document.createElement('input');
+      priceInput.className='price-input';
+      priceInput.type='number';
+      priceInput.inputMode='decimal';
+      priceInput.min='0';
+      priceInput.step='any';
+      priceInput.placeholder='單價';
+      const priceUnit=document.createElement('span');
+      priceUnit.className='unit'; priceUnit.textContent='元';
+      priceCell.append(priceInput,priceUnit);
+
+      const weightCell=document.createElement('div');
+      weightCell.className='input-wrap';
+      weightCell.insertAdjacentHTML('beforeend','<span class="mobile-label">重量</span>');
+      const weightInput=document.createElement('input');
+      weightInput.className='weight-input';
+      weightInput.type='number';
+      weightInput.inputMode='decimal';
+      weightInput.min='0';
+      weightInput.step='any';
+      weightInput.placeholder='重量';
+      weightInput.value=weightValue;
+      const weightUnit=document.createElement('span');
+      weightUnit.className='unit'; weightUnit.textContent='kg';
+      weightCell.append(weightInput,weightUnit);
+
+      const subtotal=document.createElement('div');
+      subtotal.className='subtotal';
+      subtotal.textContent='小計 NT$ 0';
+
+      const remove=document.createElement('button');
+      remove.type='button';
+      remove.className='remove';
+      remove.textContent='×';
+      remove.setAttribute('aria-label','刪除這一筆');
+
+      row.append(itemCell,priceCell,weightCell,subtotal,remove);
+      rows.append(row);
+
+      const list=currentItems();
+      const entry=list[Number(itemSelect.value)];
+      priceInput.value=priceValue!==''?priceValue:(entry?entry.price:'');
+
+      itemSelect.addEventListener('change',()=>syncRowPrice(row));
+      priceInput.addEventListener('input',calculate);
+      weightInput.addEventListener('input',calculate);
+      weightInput.addEventListener('keydown',e=>{
+        if(e.key==='Enter'){
+          e.preventDefault();
+          const next=addRow();
+          next.querySelector('.weight-input').focus();
+        }
+      });
+      remove.addEventListener('click',()=>{
+        row.remove();
+        if(!rows.children.length)addRow();
+        calculate();
+      });
+
+      calculate();
+      return row;
+    }
+
+    function refreshRowsForCustomer(){
+      [...rows.children].forEach(row=>{
+        const select=row.querySelector('.item-select');
+        fillItemSelect(select,0);
+        syncRowPrice(row);
+      });
+      calculate();
     }
 
     function calculate(){
-      const p=Number(price.value); const validPrice=Number.isFinite(p)&&p>=0?p:0;
-      let filled=0,sum=0;
+      let filled=0;
+      let totalWeightValue=0;
+      let totalAmount=0;
+      const lines=[];
+      const list=currentItems();
+
       [...rows.children].forEach(row=>{
-        const input=row.querySelector('input'); const subtotal=row.querySelector('.subtotal');
-        const w=Number(input.value); const validWeight=Number.isFinite(w)&&w>=0?w:0;
-        if(input.value!=='')filled++; sum+=validWeight; subtotal.textContent=`NT$ ${fmt.format(validWeight*validPrice)}`;
+        const itemSelect=row.querySelector('.item-select');
+        const priceInput=row.querySelector('.price-input');
+        const weightInput=row.querySelector('.weight-input');
+        const subtotal=row.querySelector('.subtotal');
+        const price=Number(priceInput.value);
+        const weight=Number(weightInput.value);
+        const p=Number.isFinite(price)&&price>=0?price:0;
+        const w=Number.isFinite(weight)&&weight>=0?weight:0;
+        const sub=p*w;
+        if(weightInput.value!=='')filled++;
+        totalWeightValue+=w;
+        totalAmount+=sub;
+        subtotal.textContent=`小計 NT$ ${fmt.format(sub)}`;
+
+        if(weightInput.value!==''){
+          const entry=list[Number(itemSelect.value)];
+          lines.push(`${escapeHtml(entry?.name||'未選品名')}：${fmt.format(w)} kg × ${fmt.format(p)} 元 = NT$ ${fmt.format(sub)}`);
+        }
       });
-      const total=sum*validPrice;
-      count.textContent=`${filled} 筆`; totalWeight.textContent=`${fmt.format(sum)} kg`; amount.textContent=`NT$ ${fmt.format(total)}`;
-      formula.textContent=filled&&price.value?`${fmt.format(sum)} kg × ${fmt.format(validPrice)} 元 = ${fmt.format(total)} 元`:'';
-      const list=demoData[customer.value.trim()]; const entry=list?.[Number(item.value)];
-      const itemName=entry?.name||'未選處理方式';
-      summary.innerHTML=`<strong>小單據預覽</strong><br>${escapeHtml(customer.value.trim()||'未填客戶')}｜${escapeHtml(itemName)}｜單價 ${fmt.format(validPrice)} 元<br>${filled} 筆，共 ${fmt.format(sum)} kg，總金額 NT$ ${fmt.format(total)}`;
+
+      count.textContent=`${filled} 筆`;
+      totalWeight.textContent=`${fmt.format(totalWeightValue)} kg`;
+      amount.textContent=`NT$ ${fmt.format(totalAmount)}`;
+      const customerName=escapeHtml(customer.value.trim()||'未選客戶');
+      summary.innerHTML=`<strong>小單據預覽｜${customerName}</strong><br>${lines.length?lines.join('<br>'):'尚未輸入重量'}<br><strong>合計：${fmt.format(totalWeightValue)} kg｜NT$ ${fmt.format(totalAmount)}</strong>`;
     }
 
-    function escapeHtml(text){return text.replace(/[&<>'\"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'\"':'&quot;'}[ch]));}
+    function escapeHtml(text){
+      return String(text).replace(/[&<>'\"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'\"':'&quot;'}[ch]));
+    }
 
-    customer.addEventListener('input',loadItems);
-    customer.addEventListener('change',loadItems);
-    item.addEventListener('change',syncPrice);
-    price.addEventListener('input',calculate);
-    add.addEventListener('click',()=>addRow().focus());
+    customer.addEventListener('input',refreshRowsForCustomer);
+    customer.addEventListener('change',refreshRowsForCustomer);
+    add.addEventListener('click',()=>addRow().querySelector('.weight-input').focus());
     clear.addEventListener('click',()=>{
-      rows.innerHTML=''; customer.value='測試甲公司'; addRow(); loadItems(); rows.querySelector('input').focus();
+      rows.innerHTML='';
+      customer.value='測試甲公司';
+      addRow();
+      calculate();
     });
 
     addRow();
-    loadItems();
   </script>
 </body>
 </html>
