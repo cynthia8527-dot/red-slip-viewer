@@ -3,39 +3,29 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>研磨計價測試</title>
+  <title>廠商計價計算機</title>
   <style>
-    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#f5f6f8;color:#202124}.card{width:min(100%,900px);background:#fff;border-radius:20px;padding:28px;box-shadow:0 10px 30px rgba(0,0,0,.08)}h1{margin:0 0 6px;font-size:26px}.sub{margin:0 0 10px;color:#6b7280;font-size:14px}.badge{display:inline-block;margin-bottom:14px;padding:5px 9px;border-radius:999px;background:#fff3cd;color:#7a5a00;font-size:12px;font-weight:700}label{display:block;margin:16px 0 7px;font-weight:700}.top-grid{display:grid;grid-template-columns:1.5fr .8fr .8fr;gap:10px}.rows{display:grid;gap:10px}.row-head,.row{display:grid;grid-template-columns:minmax(150px,1.5fr) 105px 115px 120px 44px;gap:8px;align-items:center}.row-head{font-size:12px;color:#777;padding:0 4px}.row{padding:10px;border:1px solid #e4e7eb;border-radius:14px;background:#fafafa}.input-wrap{position:relative}input,select{width:100%;border:1px solid #d7dbe2;border-radius:11px;padding:12px;font-size:16px;outline:none;background:#fff}input[type="number"]{padding-right:42px}input:focus,select:focus{border-color:#777;box-shadow:0 0 0 3px rgba(0,0,0,.05)}.unit{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#777;font-size:13px}.subtotal{text-align:right;font-weight:800;white-space:nowrap}.remove{margin:0;border:0;border-radius:11px;height:44px;font-size:21px;background:#eceef1;color:#444;cursor:pointer}.add{width:100%;margin-top:10px;border:1px dashed #aeb4bd;border-radius:12px;padding:12px;font-size:16px;background:#fff;cursor:pointer}.stats{display:grid;grid-template-columns:1fr 1fr 1.25fr;gap:10px;margin-top:22px}.stat,.result{padding:16px;border-radius:14px;background:#f2f3f5;text-align:center}.stat small,.result small{display:block;color:#6b7280;margin-bottom:5px}.stat strong{font-size:22px}.amount{font-size:30px;font-weight:800}.summary{margin-top:18px;padding:14px;border:1px solid #e1e4e8;border-radius:14px;background:#fafafa;font-size:14px;line-height:1.7}.summary strong{font-size:16px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.primary,.clear{border:0;border-radius:12px;padding:13px;font-size:16px;cursor:pointer}.primary{background:#202124;color:#fff}.clear{background:#eceef1;color:#222}.tip{margin-top:8px;color:#777;font-size:12px}.mobile-label{display:none}.saved{margin-top:24px;border-top:1px solid #e5e7eb;padding-top:20px}.saved h2{font-size:18px;margin:0 0 10px}.saved-list{display:grid;gap:8px}.saved-item{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;border:1px solid #e4e7eb;border-radius:12px;padding:11px 12px;background:#fff}.saved-main{min-width:0}.saved-title{font-weight:800}.saved-sub{font-size:12px;color:#777;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.saved-buttons{display:flex;gap:6px}.small-btn{border:1px solid #d7dbe2;background:#fff;border-radius:9px;padding:8px 10px;cursor:pointer}.empty{font-size:13px;color:#888;padding:8px 0}.save-status{min-height:20px;margin-top:8px;font-size:13px;color:#555}
-    @media(max-width:700px){body{padding:12px}.card{padding:18px}.top-grid{grid-template-columns:1fr}.row-head{display:none}.row{grid-template-columns:1fr 1fr 42px;gap:8px}.row .item-cell{grid-column:1/-2}.row .subtotal{grid-column:1/-1;text-align:left;padding-top:2px}.row .remove{grid-column:3;grid-row:1}.mobile-label{display:block;font-size:11px;color:#777;margin:0 0 4px}.stats,.actions{grid-template-columns:1fr}.amount{font-size:28px}.saved-item{grid-template-columns:1fr}.saved-buttons{justify-content:flex-start}}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#f5f6f8;color:#202124}.card{width:min(100%,900px);background:#fff;border-radius:20px;padding:28px;box-shadow:0 10px 30px rgba(0,0,0,.08)}h1{margin:0 0 6px;font-size:26px}.sub{margin:0 0 10px;color:#6b7280;font-size:14px}.badge{display:inline-block;margin-bottom:14px;padding:5px 9px;border-radius:999px;background:#fff3cd;color:#7a5a00;font-size:12px;font-weight:700}label{display:block;margin:16px 0 7px;font-weight:700}.customer-wrap{max-width:420px}.rows{display:grid;gap:10px}.row-head,.row{display:grid;grid-template-columns:minmax(150px,1.5fr) 105px 115px 120px 44px;gap:8px;align-items:center}.row-head{font-size:12px;color:#777;padding:0 4px}.row{padding:10px;border:1px solid #e4e7eb;border-radius:14px;background:#fafafa}.input-wrap{position:relative}input,select{width:100%;border:1px solid #d7dbe2;border-radius:11px;padding:12px;font-size:16px;outline:none;background:#fff}input[type="number"]{padding-right:42px}input:focus,select:focus{border-color:#777;box-shadow:0 0 0 3px rgba(0,0,0,.05)}.unit{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#777;font-size:13px}.subtotal{text-align:right;font-weight:800;white-space:nowrap}.remove{margin:0;border:0;border-radius:11px;height:44px;font-size:21px;background:#eceef1;color:#444;cursor:pointer}.add{width:100%;margin-top:10px;border:1px dashed #aeb4bd;border-radius:12px;padding:12px;font-size:16px;background:#fff;cursor:pointer}.stats{display:grid;grid-template-columns:1fr 1fr 1.25fr;gap:10px;margin-top:22px}.stat,.result{padding:16px;border-radius:14px;background:#f2f3f5;text-align:center}.stat small,.result small{display:block;color:#6b7280;margin-bottom:5px}.stat strong{font-size:22px}.amount{font-size:30px;font-weight:800}.summary{margin-top:18px;padding:14px;border:1px solid #e1e4e8;border-radius:14px;background:#fafafa;font-size:14px;line-height:1.7}.summary strong{font-size:16px}.clear{width:100%;margin-top:14px;border:0;border-radius:12px;padding:13px;font-size:16px;cursor:pointer;background:#202124;color:#fff}.tip{margin-top:8px;color:#777;font-size:12px}.mobile-label{display:none}
+    @media(max-width:700px){body{padding:12px}.card{padding:18px}.row-head{display:none}.row{grid-template-columns:1fr 1fr 42px;gap:8px}.row .item-cell{grid-column:1/-2}.row .subtotal{grid-column:1/-1;text-align:left;padding-top:2px}.row .remove{grid-column:3;grid-row:1}.mobile-label{display:block;font-size:11px;color:#777;margin:0 0 4px}.stats{grid-template-columns:1fr}.amount{font-size:28px}}
   </style>
 </head>
 <body>
   <main class="card">
-    <h1>研磨計價測試</h1>
-    <p class="sub">同一個客戶，每一筆可以是不同品名、不同單價，現在也可以把測試單存起來。</p>
-    <div class="badge">⚠ 以下客戶與價格全部是示範假資料</div>
+    <h1>廠商計價計算機</h1>
+    <p class="sub">選廠商與品項，輸入重量，自動計算每筆小計與總額。</p>
+    <div class="badge">⚠ 目前廠商與價格都是示範假資料</div>
 
-    <div class="top-grid">
-      <div>
-        <label for="customer">客戶名稱</label>
-        <input id="customer" list="customerList" value="測試甲公司" placeholder="輸入或搜尋客戶">
-        <datalist id="customerList"></datalist>
-      </div>
-      <div>
-        <label for="redNo">紅單號</label>
-        <input id="redNo" inputmode="numeric" placeholder="例如 123456">
-      </div>
-      <div>
-        <label for="date">日期</label>
-        <input id="date" type="date">
-      </div>
+    <div class="customer-wrap">
+      <label for="customer">廠商</label>
+      <input id="customer" list="customerList" value="測試甲公司" placeholder="輸入或搜尋廠商">
+      <datalist id="customerList"></datalist>
     </div>
 
-    <label>明細</label>
+    <label>計價明細</label>
     <div class="row-head"><span>品名／處理方式</span><span>單價</span><span>重量</span><span style="text-align:right">小計</span><span></span></div>
     <div id="rows" class="rows"></div>
     <button id="add" class="add" type="button">＋ 新增一筆</button>
-    <div class="tip">每一筆都能選不同處理方式，單價自動帶入，也可以手動修改。</div>
+    <div class="tip">同一家廠商可以有很多不同單價。選品項會自動帶入單價，也可以臨時手動修改。</div>
 
     <section class="stats" aria-live="polite">
       <div class="stat"><small>筆數</small><strong id="count">0 筆</strong></div>
@@ -44,17 +34,7 @@
     </section>
 
     <div class="summary" id="summary"></div>
-    <div class="actions">
-      <button type="button" id="save" class="primary">儲存這張單</button>
-      <button type="button" id="clear" class="clear">清空重新輸入</button>
-    </div>
-    <div id="saveStatus" class="save-status" aria-live="polite"></div>
-
-    <section class="saved">
-      <h2>最近儲存</h2>
-      <div id="savedList" class="saved-list"></div>
-      <div class="tip">目前只存在這台裝置的瀏覽器；換手機或清除瀏覽器資料就看不到。</div>
-    </section>
+    <button type="button" id="clear" class="clear">清空重新計算</button>
   </main>
 
   <script>
@@ -87,21 +67,15 @@
       ]
     };
 
-    const STORAGE_KEY='grinding-demo-records-v1';
     const rows=document.getElementById('rows');
     const add=document.getElementById('add');
     const customer=document.getElementById('customer');
     const customerList=document.getElementById('customerList');
-    const redNo=document.getElementById('redNo');
-    const dateInput=document.getElementById('date');
     const count=document.getElementById('count');
     const totalWeight=document.getElementById('totalWeight');
     const amount=document.getElementById('amount');
     const summary=document.getElementById('summary');
     const clear=document.getElementById('clear');
-    const save=document.getElementById('save');
-    const saveStatus=document.getElementById('saveStatus');
-    const savedList=document.getElementById('savedList');
     const fmt=new Intl.NumberFormat('zh-TW',{maximumFractionDigits:2});
 
     Object.keys(demoData).forEach(name=>{
@@ -109,14 +83,6 @@
       option.value=name;
       customerList.append(option);
     });
-
-    function localDateString(){
-      const d=new Date();
-      const y=d.getFullYear();
-      const m=String(d.getMonth()+1).padStart(2,'0');
-      const day=String(d.getDate()).padStart(2,'0');
-      return `${y}-${m}-${day}`;
-    }
 
     function currentItems(){ return demoData[customer.value.trim()]||[]; }
 
@@ -126,7 +92,7 @@
       if(!list.length){
         const option=document.createElement('option');
         option.value='';
-        option.textContent='請先選擇客戶';
+        option.textContent='請先選擇廠商';
         select.append(option);
         return;
       }
@@ -148,7 +114,7 @@
       calculate();
     }
 
-    function addRow({itemIndex=0,itemName='',priceValue='',weightValue=''}={}){
+    function addRow({itemIndex=0,priceValue='',weightValue=''}={}){
       const row=document.createElement('div');
       row.className='row';
 
@@ -158,11 +124,6 @@
       const itemSelect=document.createElement('select');
       itemSelect.className='item-select';
       fillItemSelect(itemSelect,itemIndex);
-      if(itemName){
-        const list=currentItems();
-        const found=list.findIndex(x=>x.name===itemName);
-        if(found>=0)itemSelect.value=String(found);
-      }
       itemCell.append(itemSelect);
 
       const priceCell=document.createElement('div');
@@ -183,8 +144,12 @@
       const weightUnit=document.createElement('span'); weightUnit.className='unit'; weightUnit.textContent='kg';
       weightCell.append(weightInput,weightUnit);
 
-      const subtotal=document.createElement('div'); subtotal.className='subtotal'; subtotal.textContent='小計 NT$ 0';
-      const remove=document.createElement('button'); remove.type='button'; remove.className='remove'; remove.textContent='×'; remove.setAttribute('aria-label','刪除這一筆');
+      const subtotal=document.createElement('div');
+      subtotal.className='subtotal';
+      subtotal.textContent='小計 NT$ 0';
+
+      const remove=document.createElement('button');
+      remove.type='button'; remove.className='remove'; remove.textContent='×'; remove.setAttribute('aria-label','刪除這一筆');
 
       row.append(itemCell,priceCell,weightCell,subtotal,remove);
       rows.append(row);
@@ -221,126 +186,56 @@
       calculate();
     }
 
-    function collect(){
-      const list=currentItems();
-      const details=[...rows.children].map(row=>{
-        const itemSelect=row.querySelector('.item-select');
-        const priceInput=row.querySelector('.price-input');
-        const weightInput=row.querySelector('.weight-input');
-        const entry=list[Number(itemSelect.value)];
-        const price=Number(priceInput.value)||0;
-        const weight=Number(weightInput.value)||0;
-        return {item:entry?.name||'',price,weight,subtotal:price*weight};
-      }).filter(x=>x.weight>0 || x.price>0);
-      return {
-        id:`${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
-        redNo:redNo.value.trim(),
-        date:dateInput.value,
-        customer:customer.value.trim(),
-        details,
-        totalWeight:details.reduce((s,x)=>s+x.weight,0),
-        totalAmount:details.reduce((s,x)=>s+x.subtotal,0),
-        savedAt:new Date().toISOString()
-      };
-    }
-
     function calculate(){
-      let filled=0,totalWeightValue=0,totalAmount=0;
+      let filled=0;
+      let totalWeightValue=0;
+      let totalAmount=0;
       const lines=[];
       const list=currentItems();
+
       [...rows.children].forEach(row=>{
         const itemSelect=row.querySelector('.item-select');
         const priceInput=row.querySelector('.price-input');
         const weightInput=row.querySelector('.weight-input');
         const subtotal=row.querySelector('.subtotal');
-        const price=Number(priceInput.value); const weight=Number(weightInput.value);
-        const p=Number.isFinite(price)&&price>=0?price:0; const w=Number.isFinite(weight)&&weight>=0?weight:0;
+        const price=Number(priceInput.value);
+        const weight=Number(weightInput.value);
+        const p=Number.isFinite(price)&&price>=0?price:0;
+        const w=Number.isFinite(weight)&&weight>=0?weight:0;
         const sub=p*w;
+
         if(weightInput.value!=='')filled++;
-        totalWeightValue+=w; totalAmount+=sub; subtotal.textContent=`小計 NT$ ${fmt.format(sub)}`;
+        totalWeightValue+=w;
+        totalAmount+=sub;
+        subtotal.textContent=`小計 NT$ ${fmt.format(sub)}`;
+
         if(weightInput.value!==''){
           const entry=list[Number(itemSelect.value)];
           lines.push(`${escapeHtml(entry?.name||'未選品名')}：${fmt.format(w)} kg × ${fmt.format(p)} 元 = NT$ ${fmt.format(sub)}`);
         }
       });
-      count.textContent=`${filled} 筆`; totalWeight.textContent=`${fmt.format(totalWeightValue)} kg`; amount.textContent=`NT$ ${fmt.format(totalAmount)}`;
-      const customerName=escapeHtml(customer.value.trim()||'未選客戶');
-      const head=[redNo.value.trim()?`紅單 ${escapeHtml(redNo.value.trim())}`:'未填紅單號',dateInput.value||'未填日期',customerName].join('｜');
-      summary.innerHTML=`<strong>${head}</strong><br>${lines.length?lines.join('<br>'):'尚未輸入重量'}<br><strong>合計：${fmt.format(totalWeightValue)} kg｜NT$ ${fmt.format(totalAmount)}</strong>`;
+
+      count.textContent=`${filled} 筆`;
+      totalWeight.textContent=`${fmt.format(totalWeightValue)} kg`;
+      amount.textContent=`NT$ ${fmt.format(totalAmount)}`;
+      const customerName=escapeHtml(customer.value.trim()||'未選廠商');
+      summary.innerHTML=`<strong>${customerName}</strong><br>${lines.length?lines.join('<br>'):'尚未輸入重量'}<br><strong>合計：${fmt.format(totalWeightValue)} kg｜NT$ ${fmt.format(totalAmount)}</strong>`;
     }
 
-    function getRecords(){
-      try{
-        const data=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');
-        return Array.isArray(data)?data:[];
-      }catch{return [];}
+    function escapeHtml(text){
+      return String(text).replace(/[&<>'\"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'\"':'&quot;'}[ch]));
     }
-
-    function setRecords(records){ localStorage.setItem(STORAGE_KEY,JSON.stringify(records.slice(0,30))); }
-
-    function saveRecord(){
-      const record=collect();
-      if(!record.customer){ saveStatus.textContent='請先選客戶。'; return; }
-      if(!record.details.some(x=>x.weight>0)){ saveStatus.textContent='至少輸入一筆重量。'; return; }
-      const records=getRecords();
-      records.unshift(record);
-      setRecords(records);
-      saveStatus.textContent=`已儲存${record.redNo?`紅單 ${record.redNo}`:'這張單'}。`;
-      renderSaved();
-    }
-
-    function loadRecord(record){
-      customer.value=record.customer||'測試甲公司';
-      redNo.value=record.redNo||'';
-      dateInput.value=record.date||localDateString();
-      rows.innerHTML='';
-      (record.details||[]).forEach(d=>addRow({itemName:d.item,priceValue:d.price,weightValue:d.weight}));
-      if(!rows.children.length)addRow();
-      calculate();
-      saveStatus.textContent='已載入儲存紀錄，可以繼續修改。';
-      window.scrollTo({top:0,behavior:'smooth'});
-    }
-
-    function deleteRecord(id){
-      const records=getRecords().filter(r=>r.id!==id);
-      setRecords(records);
-      renderSaved();
-    }
-
-    function renderSaved(){
-      const records=getRecords();
-      savedList.innerHTML='';
-      if(!records.length){ savedList.innerHTML='<div class="empty">目前還沒有儲存紀錄。</div>'; return; }
-      records.forEach(record=>{
-        const item=document.createElement('div'); item.className='saved-item';
-        const main=document.createElement('div'); main.className='saved-main';
-        const title=document.createElement('div'); title.className='saved-title'; title.textContent=`${record.redNo?`#${record.redNo}｜`:''}${record.customer||'未填客戶'}｜NT$ ${fmt.format(record.totalAmount||0)}`;
-        const sub=document.createElement('div'); sub.className='saved-sub'; sub.textContent=`${record.date||'未填日期'}｜${fmt.format(record.totalWeight||0)} kg｜${(record.details||[]).length} 筆`;
-        main.append(title,sub);
-        const buttons=document.createElement('div'); buttons.className='saved-buttons';
-        const open=document.createElement('button'); open.type='button'; open.className='small-btn'; open.textContent='打開'; open.addEventListener('click',()=>loadRecord(record));
-        const del=document.createElement('button'); del.type='button'; del.className='small-btn'; del.textContent='刪除'; del.addEventListener('click',()=>deleteRecord(record.id));
-        buttons.append(open,del); item.append(main,buttons); savedList.append(item);
-      });
-    }
-
-    function resetForm(){
-      rows.innerHTML=''; customer.value='測試甲公司'; redNo.value=''; dateInput.value=localDateString(); addRow(); calculate(); saveStatus.textContent='';
-    }
-
-    function escapeHtml(text){ return String(text).replace(/[&<>'\"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'\"':'&quot;'}[ch])); }
 
     customer.addEventListener('input',refreshRowsForCustomer);
     customer.addEventListener('change',refreshRowsForCustomer);
-    redNo.addEventListener('input',calculate);
-    dateInput.addEventListener('change',calculate);
     add.addEventListener('click',()=>addRow().querySelector('.weight-input').focus());
-    clear.addEventListener('click',resetForm);
-    save.addEventListener('click',saveRecord);
+    clear.addEventListener('click',()=>{
+      rows.innerHTML='';
+      addRow();
+      calculate();
+    });
 
-    dateInput.value=localDateString();
     addRow();
-    renderSaved();
   </script>
 </body>
 </html>
