@@ -5,23 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>研磨重量計算器</title>
   <style>
-    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#f5f6f8;color:#202124}.card{width:min(100%,480px);background:#fff;border-radius:20px;padding:28px;box-shadow:0 10px 30px rgba(0,0,0,.08)}h1{margin:0 0 6px;font-size:26px}.sub{margin:0 0 22px;color:#6b7280;font-size:14px}label{display:block;margin:16px 0 7px;font-weight:700}.rows{display:grid;gap:10px}.row{display:grid;grid-template-columns:1fr 48px;gap:8px;align-items:center}.input-wrap{position:relative}input{width:100%;border:1px solid #d7dbe2;border-radius:12px;padding:14px 54px 14px 14px;font-size:18px;outline:none}input:focus{border-color:#777;box-shadow:0 0 0 3px rgba(0,0,0,.05)}.unit{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#777}.remove{margin:0;border:0;border-radius:12px;height:50px;font-size:22px;background:#eceef1;color:#444;cursor:pointer}.add{width:100%;margin-top:10px;border:1px dashed #aeb4bd;border-radius:12px;padding:12px;font-size:16px;background:#fff;cursor:pointer}.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:22px}.stat,.result{padding:16px;border-radius:14px;background:#f2f3f5;text-align:center}.stat small,.result small{display:block;color:#6b7280;margin-bottom:5px}.stat strong{font-size:22px}.result{grid-column:1/-1}.amount{font-size:34px;font-weight:800}.formula{margin-top:12px;min-height:20px;text-align:center;color:#777;font-size:13px}.clear{width:100%;margin-top:14px;border:0;border-radius:12px;padding:13px;font-size:16px;cursor:pointer;background:#202124;color:#fff}@media(max-width:380px){.stats{grid-template-columns:1fr}.result{grid-column:auto}}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#f5f6f8;color:#202124}.card{width:min(100%,520px);background:#fff;border-radius:20px;padding:28px;box-shadow:0 10px 30px rgba(0,0,0,.08)}h1{margin:0 0 6px;font-size:26px}.sub{margin:0 0 22px;color:#6b7280;font-size:14px}label{display:block;margin:16px 0 7px;font-weight:700}.rows{display:grid;gap:8px}.row-head,.row{display:grid;grid-template-columns:minmax(0,1fr) 120px 46px;gap:8px;align-items:center}.row-head{font-size:12px;color:#777;padding:0 4px}.input-wrap{position:relative}input{width:100%;border:1px solid #d7dbe2;border-radius:12px;padding:14px 48px 14px 14px;font-size:18px;outline:none}input:focus{border-color:#777;box-shadow:0 0 0 3px rgba(0,0,0,.05)}.unit{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#777}.subtotal{font-variant-numeric:tabular-nums;text-align:right;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.remove{margin:0;border:0;border-radius:12px;height:50px;font-size:22px;background:#eceef1;color:#444;cursor:pointer}.add{width:100%;margin-top:10px;border:1px dashed #aeb4bd;border-radius:12px;padding:12px;font-size:16px;background:#fff;cursor:pointer}.price-line{display:grid;grid-template-columns:1fr;gap:8px}.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:22px}.stat,.result{padding:16px;border-radius:14px;background:#f2f3f5;text-align:center}.stat small,.result small{display:block;color:#6b7280;margin-bottom:5px}.stat strong{font-size:22px}.result{grid-column:1/-1}.amount{font-size:34px;font-weight:800}.formula{margin-top:12px;min-height:20px;text-align:center;color:#777;font-size:13px}.clear{width:100%;margin-top:14px;border:0;border-radius:12px;padding:13px;font-size:16px;cursor:pointer;background:#202124;color:#fff}.tip{margin-top:8px;color:#777;font-size:12px}@media(max-width:430px){.card{padding:20px}.row-head,.row{grid-template-columns:minmax(0,1fr) 96px 42px}.subtotal{font-size:14px}.stats{grid-template-columns:1fr}.result{grid-column:auto}}
   </style>
 </head>
 <body>
   <main class="card">
     <h1>研磨重量計算器</h1>
-    <p class="sub">每一筆重量一格，按「＋新增一筆」繼續加。</p>
-
-    <label>重量</label>
-    <div id="rows" class="rows"></div>
-    <button id="add" class="add" type="button">＋ 新增一筆</button>
+    <p class="sub">每一筆重量一格，會自動算小計與總金額。</p>
 
     <label for="price">單價</label>
-    <div class="input-wrap">
-      <input id="price" type="number" inputmode="decimal" min="0" step="any" placeholder="例如 10">
-      <span class="unit">元</span>
+    <div class="price-line">
+      <div class="input-wrap">
+        <input id="price" type="number" inputmode="decimal" min="0" step="any" placeholder="例如 10">
+        <span class="unit">元</span>
+      </div>
     </div>
+
+    <label>重量</label>
+    <div class="row-head"><span>重量</span><span style="text-align:right">小計</span><span></span></div>
+    <div id="rows" class="rows"></div>
+    <button id="add" class="add" type="button">＋ 新增一筆</button>
+    <div class="tip">在重量欄按 Enter，也會直接新增下一筆。</div>
 
     <section class="stats" aria-live="polite">
       <div class="stat"><small>筆數</small><strong id="count">0 筆</strong></div>
@@ -59,10 +63,20 @@
       input.placeholder='輸入重量';
       input.value=value;
       input.addEventListener('input',calculate);
+      input.addEventListener('keydown',e=>{
+        if(e.key==='Enter'){
+          e.preventDefault();
+          addRow().focus();
+        }
+      });
 
       const unit=document.createElement('span');
       unit.className='unit';
       unit.textContent='kg';
+
+      const subtotal=document.createElement('div');
+      subtotal.className='subtotal';
+      subtotal.textContent='NT$ 0';
 
       const remove=document.createElement('button');
       remove.type='button';
@@ -76,24 +90,28 @@
       });
 
       wrap.append(input,unit);
-      row.append(wrap,remove);
+      row.append(wrap,subtotal,remove);
       rows.append(row);
       calculate();
       return input;
     }
 
-    function values(){
-      return [...rows.querySelectorAll('input')]
-        .map(i=>Number(i.value))
-        .filter(v=>Number.isFinite(v)&&v>=0);
-    }
-
     function calculate(){
-      const list=values();
-      const filled=[...rows.querySelectorAll('input')].filter(i=>i.value!=='').length;
-      const sum=list.reduce((a,b)=>a+b,0);
       const p=Number(price.value);
       const validPrice=Number.isFinite(p)&&p>=0?p:0;
+      let filled=0;
+      let sum=0;
+
+      [...rows.children].forEach(row=>{
+        const input=row.querySelector('input');
+        const subtotal=row.querySelector('.subtotal');
+        const w=Number(input.value);
+        const validWeight=Number.isFinite(w)&&w>=0?w:0;
+        if(input.value!=='') filled++;
+        sum+=validWeight;
+        subtotal.textContent=`NT$ ${fmt.format(validWeight*validPrice)}`;
+      });
+
       const total=sum*validPrice;
       count.textContent=`${filled} 筆`;
       totalWeight.textContent=`${fmt.format(sum)} kg`;
