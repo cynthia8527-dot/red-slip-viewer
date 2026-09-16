@@ -3,29 +3,54 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>廠商計價計算機</title>
+  <title>廠商查價計算機</title>
   <style>
-    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#f5f6f8;color:#202124}.card{width:min(100%,900px);background:#fff;border-radius:20px;padding:28px;box-shadow:0 10px 30px rgba(0,0,0,.08)}h1{margin:0 0 6px;font-size:26px}.sub{margin:0 0 10px;color:#6b7280;font-size:14px}.badge{display:inline-block;margin-bottom:14px;padding:5px 9px;border-radius:999px;background:#fff3cd;color:#7a5a00;font-size:12px;font-weight:700}label{display:block;margin:16px 0 7px;font-weight:700}.customer-wrap{max-width:420px}.rows{display:grid;gap:10px}.row-head,.row{display:grid;grid-template-columns:minmax(150px,1.5fr) 105px 115px 120px 44px;gap:8px;align-items:center}.row-head{font-size:12px;color:#777;padding:0 4px}.row{padding:10px;border:1px solid #e4e7eb;border-radius:14px;background:#fafafa}.input-wrap{position:relative}input,select{width:100%;border:1px solid #d7dbe2;border-radius:11px;padding:12px;font-size:16px;outline:none;background:#fff}input[type="number"]{padding-right:42px}input:focus,select:focus{border-color:#777;box-shadow:0 0 0 3px rgba(0,0,0,.05)}.unit{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#777;font-size:13px}.subtotal{text-align:right;font-weight:800;white-space:nowrap}.remove{margin:0;border:0;border-radius:11px;height:44px;font-size:21px;background:#eceef1;color:#444;cursor:pointer}.add{width:100%;margin-top:10px;border:1px dashed #aeb4bd;border-radius:12px;padding:12px;font-size:16px;background:#fff;cursor:pointer}.stats{display:grid;grid-template-columns:1fr 1fr 1.25fr;gap:10px;margin-top:22px}.stat,.result{padding:16px;border-radius:14px;background:#f2f3f5;text-align:center}.stat small,.result small{display:block;color:#6b7280;margin-bottom:5px}.stat strong{font-size:22px}.amount{font-size:30px;font-weight:800}.summary{margin-top:18px;padding:14px;border:1px solid #e1e4e8;border-radius:14px;background:#fafafa;font-size:14px;line-height:1.7}.summary strong{font-size:16px}.clear{width:100%;margin-top:14px;border:0;border-radius:12px;padding:13px;font-size:16px;cursor:pointer;background:#202124;color:#fff}.tip{margin-top:8px;color:#777;font-size:12px}.mobile-label{display:none}
-    @media(max-width:700px){body{padding:12px}.card{padding:18px}.row-head{display:none}.row{grid-template-columns:1fr 1fr 42px;gap:8px}.row .item-cell{grid-column:1/-2}.row .subtotal{grid-column:1/-1;text-align:left;padding-top:2px}.row .remove{grid-column:3;grid-row:1}.mobile-label{display:block;font-size:11px;color:#777;margin:0 0 4px}.stats{grid-template-columns:1fr}.amount{font-size:28px}}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#f5f6f8;color:#202124}
+    .card{width:min(100%,980px);background:#fff;border-radius:20px;padding:28px;box-shadow:0 10px 30px rgba(0,0,0,.08)}
+    h1{margin:0 0 6px;font-size:28px}.sub{margin:0 0 10px;color:#6b7280;font-size:14px}.badge{display:inline-block;margin-bottom:16px;padding:5px 9px;border-radius:999px;background:#fff3cd;color:#7a5a00;font-size:12px;font-weight:700}
+    label{display:block;margin:16px 0 7px;font-weight:700}.customer-wrap{max-width:430px}
+    input,select{width:100%;border:1px solid #d7dbe2;border-radius:11px;padding:12px;font-size:16px;outline:none;background:#fff}
+    input[type="number"]{padding-right:42px}input:focus,select:focus{border-color:#777;box-shadow:0 0 0 3px rgba(0,0,0,.05)}
+    .price-box{margin-top:18px;padding:16px;border:1px solid #e3e6ea;border-radius:16px;background:#fafafa}
+    .price-box-head{display:flex;justify-content:space-between;gap:12px;align-items:end;margin-bottom:10px}.price-box h2{font-size:18px;margin:0}.price-note{font-size:12px;color:#777}
+    .price-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.price-card{border:1px solid #dfe3e8;background:#fff;border-radius:13px;padding:13px;text-align:left;cursor:pointer;transition:.15s}.price-card:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.06);border-color:#aeb4bd}.price-card strong{display:block;font-size:15px;margin-bottom:5px}.price-card .meta{font-size:12px;color:#777}.price-card .price{font-size:22px;font-weight:850;margin-top:8px}.price-card .add-text{font-size:11px;color:#777;margin-top:4px}
+    .empty-price{color:#888;font-size:13px;padding:8px 0}
+    .section-title{margin-top:22px;font-weight:800}
+    .rows{display:grid;gap:10px}.row-head,.row{display:grid;grid-template-columns:minmax(160px,1.5fr) 105px 115px 125px 44px;gap:8px;align-items:center}.row-head{font-size:12px;color:#777;padding:0 4px}.row{padding:10px;border:1px solid #e4e7eb;border-radius:14px;background:#fafafa}
+    .input-wrap{position:relative}.unit{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#777;font-size:13px}.subtotal{text-align:right;font-weight:800;white-space:nowrap}.remove{margin:0;border:0;border-radius:11px;height:44px;font-size:21px;background:#eceef1;color:#444;cursor:pointer}
+    .add{width:100%;margin-top:10px;border:1px dashed #aeb4bd;border-radius:12px;padding:12px;font-size:16px;background:#fff;cursor:pointer}.tip{margin-top:8px;color:#777;font-size:12px}
+    .stats{display:grid;grid-template-columns:1fr 1fr 1.25fr;gap:10px;margin-top:22px}.stat,.result{padding:16px;border-radius:14px;background:#f2f3f5;text-align:center}.stat small,.result small{display:block;color:#6b7280;margin-bottom:5px}.stat strong{font-size:22px}.amount{font-size:30px;font-weight:850}
+    .summary{margin-top:18px;padding:14px;border:1px solid #e1e4e8;border-radius:14px;background:#fafafa;font-size:14px;line-height:1.7}.summary strong{font-size:16px}.clear{width:100%;margin-top:14px;border:0;border-radius:12px;padding:13px;font-size:16px;cursor:pointer;background:#202124;color:#fff}.mobile-label{display:none}
+    @media(max-width:760px){body{padding:12px}.card{padding:18px}.price-grid{grid-template-columns:1fr 1fr}.row-head{display:none}.row{grid-template-columns:1fr 1fr 42px;gap:8px}.row .item-cell{grid-column:1/-2}.row .subtotal{grid-column:1/-1;text-align:left;padding-top:2px}.row .remove{grid-column:3;grid-row:1}.mobile-label{display:block;font-size:11px;color:#777;margin:0 0 4px}.stats{grid-template-columns:1fr}.amount{font-size:28px}}
+    @media(max-width:430px){.price-grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
   <main class="card">
-    <h1>廠商計價計算機</h1>
-    <p class="sub">選廠商與品項，輸入重量，自動計算每筆小計與總額。</p>
-    <div class="badge">⚠ 目前廠商與價格都是示範假資料</div>
+    <h1>廠商查價計算機</h1>
+    <p class="sub">先查廠商有哪些價格，點一下品項就直接加到下面計算。</p>
+    <div class="badge">⚠ 目前全部都是示範假資料</div>
 
     <div class="customer-wrap">
       <label for="customer">廠商</label>
-      <input id="customer" list="customerList" value="測試甲公司" placeholder="輸入或搜尋廠商">
+      <input id="customer" list="customerList" value="測試甲精密" placeholder="輸入或搜尋廠商">
       <datalist id="customerList"></datalist>
     </div>
 
-    <label>計價明細</label>
+    <section class="price-box">
+      <div class="price-box-head">
+        <h2 id="priceTitle">廠商價格表</h2>
+        <span class="price-note">點品項可加入計算</span>
+      </div>
+      <div id="priceGrid" class="price-grid"></div>
+    </section>
+
+    <div class="section-title">計價明細</div>
     <div class="row-head"><span>品名／處理方式</span><span>單價</span><span>重量</span><span style="text-align:right">小計</span><span></span></div>
     <div id="rows" class="rows"></div>
-    <button id="add" class="add" type="button">＋ 新增一筆</button>
-    <div class="tip">同一家廠商可以有很多不同單價。選品項會自動帶入單價，也可以臨時手動修改。</div>
+    <button id="add" class="add" type="button">＋ 新增空白一筆</button>
+    <div class="tip">同一家廠商可有多種價格；每一筆單價也可以臨時手動修改。</div>
 
     <section class="stats" aria-live="polite">
       <div class="stat"><small>筆數</small><strong id="count">0 筆</strong></div>
@@ -39,31 +64,49 @@
 
   <script>
     const demoData={
-      '測試甲公司':[
-        {name:'一般研磨',price:10},
-        {name:'研亮',price:15},
-        {name:'去毛邊',price:8}
+      '測試甲精密':[
+        {name:'一般研磨',material:'鐵件',unit:'kg',price:10},
+        {name:'研亮',material:'鐵件',unit:'kg',price:15},
+        {name:'去毛邊',material:'一般件',unit:'kg',price:8},
+        {name:'細件研磨',material:'小五金',unit:'kg',price:18}
       ],
       '測試乙工業':[
-        {name:'黑色研磨',price:12},
-        {name:'鏡面研亮',price:20}
+        {name:'粗研',material:'SUS304',unit:'kg',price:12},
+        {name:'細研',material:'SUS304',unit:'kg',price:17},
+        {name:'鏡面研亮',material:'不鏽鋼',unit:'kg',price:24}
       ],
-      '測試丙精密':[
-        {name:'一般研磨',price:9}
+      '測試丙企業':[
+        {name:'一般研磨',material:'鋁',unit:'kg',price:14},
+        {name:'亮面處理',material:'鋁',unit:'kg',price:20},
+        {name:'特殊細件',material:'鋁',unit:'kg',price:28},
+        {name:'去毛刺',material:'鋁',unit:'kg',price:9}
       ],
-      '測試丁企業':[
-        {name:'鋁件研磨',price:18},
-        {name:'不鏽鋼研亮',price:25},
-        {name:'細件研磨',price:22}
+      '測試丁科技':[
+        {name:'一般研磨',material:'銅',unit:'kg',price:22},
+        {name:'細研亮',material:'銅',unit:'kg',price:30}
       ],
-      '測試戊科技':[
-        {name:'粗研',price:11},
-        {name:'細研',price:14}
+      '測試戊五金':[
+        {name:'一般研磨',material:'鐵件',unit:'kg',price:9},
+        {name:'研亮',material:'鐵件',unit:'kg',price:13},
+        {name:'黑色研磨',material:'鐵件',unit:'kg',price:16},
+        {name:'特殊件',material:'混合',unit:'kg',price:35}
       ],
-      '測試己五金':[
-        {name:'一般研磨',price:10},
-        {name:'亮面處理',price:16},
-        {name:'特殊件',price:30}
+      '測試己實業':[
+        {name:'滾筒研磨',material:'螺絲',unit:'kg',price:7},
+        {name:'精研',material:'螺絲',unit:'kg',price:11},
+        {name:'研亮',material:'螺絲',unit:'kg',price:14}
+      ],
+      '測試庚有限公司':[
+        {name:'粗研',material:'鑄件',unit:'kg',price:18},
+        {name:'二次研磨',material:'鑄件',unit:'kg',price:23},
+        {name:'亮面',material:'鑄件',unit:'kg',price:31}
+      ],
+      '測試辛工業社':[
+        {name:'一般件',material:'不鏽鋼',unit:'kg',price:11},
+        {name:'長件',material:'不鏽鋼',unit:'kg',price:19},
+        {name:'薄片件',material:'不鏽鋼',unit:'kg',price:26},
+        {name:'高亮度',material:'不鏽鋼',unit:'kg',price:32},
+        {name:'人工挑選',material:'特殊件',unit:'kg',price:40}
       ]
     };
 
@@ -71,6 +114,8 @@
     const add=document.getElementById('add');
     const customer=document.getElementById('customer');
     const customerList=document.getElementById('customerList');
+    const priceGrid=document.getElementById('priceGrid');
+    const priceTitle=document.getElementById('priceTitle');
     const count=document.getElementById('count');
     const totalWeight=document.getElementById('totalWeight');
     const amount=document.getElementById('amount');
@@ -85,6 +130,28 @@
     });
 
     function currentItems(){ return demoData[customer.value.trim()]||[]; }
+
+    function renderPriceCards(){
+      const name=customer.value.trim();
+      const list=currentItems();
+      priceTitle.textContent=list.length?`${name}｜價格表`:'廠商價格表';
+      priceGrid.innerHTML='';
+      if(!list.length){
+        priceGrid.innerHTML='<div class="empty-price">找不到這個示範廠商，請從上方清單選擇。</div>';
+        return;
+      }
+      list.forEach((entry,index)=>{
+        const button=document.createElement('button');
+        button.type='button';
+        button.className='price-card';
+        button.innerHTML=`<strong>${escapeHtml(entry.name)}</strong><div class="meta">${escapeHtml(entry.material)}｜${escapeHtml(entry.unit)}</div><div class="price">NT$ ${fmt.format(entry.price)}</div><div class="add-text">＋ 加入計算</div>`;
+        button.addEventListener('click',()=>{
+          const row=addRow({itemIndex:index,priceValue:entry.price});
+          row.querySelector('.weight-input').focus();
+        });
+        priceGrid.append(button);
+      });
+    }
 
     function fillItemSelect(select,preferredIndex=0){
       const list=currentItems();
@@ -167,29 +234,20 @@
           addRow().querySelector('.weight-input').focus();
         }
       });
-      remove.addEventListener('click',()=>{
-        row.remove();
-        if(!rows.children.length)addRow();
-        calculate();
-      });
+      remove.addEventListener('click',()=>{row.remove();calculate();});
 
       calculate();
       return row;
     }
 
-    function refreshRowsForCustomer(){
-      [...rows.children].forEach(row=>{
-        const select=row.querySelector('.item-select');
-        fillItemSelect(select,0);
-        syncRowPrice(row);
-      });
+    function refreshForCustomer(){
+      rows.innerHTML='';
+      renderPriceCards();
       calculate();
     }
 
     function calculate(){
-      let filled=0;
-      let totalWeightValue=0;
-      let totalAmount=0;
+      let filled=0,totalWeightValue=0,totalAmount=0;
       const lines=[];
       const list=currentItems();
 
@@ -219,23 +277,20 @@
       totalWeight.textContent=`${fmt.format(totalWeightValue)} kg`;
       amount.textContent=`NT$ ${fmt.format(totalAmount)}`;
       const customerName=escapeHtml(customer.value.trim()||'未選廠商');
-      summary.innerHTML=`<strong>${customerName}</strong><br>${lines.length?lines.join('<br>'):'尚未輸入重量'}<br><strong>合計：${fmt.format(totalWeightValue)} kg｜NT$ ${fmt.format(totalAmount)}</strong>`;
+      summary.innerHTML=`<strong>${customerName}</strong><br>${lines.length?lines.join('<br>'):'點上方價格卡加入品項，再輸入重量即可計算。'}<br><strong>合計：${fmt.format(totalWeightValue)} kg｜NT$ ${fmt.format(totalAmount)}</strong>`;
     }
 
     function escapeHtml(text){
       return String(text).replace(/[&<>'\"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'\"':'&quot;'}[ch]));
     }
 
-    customer.addEventListener('input',refreshRowsForCustomer);
-    customer.addEventListener('change',refreshRowsForCustomer);
+    customer.addEventListener('input',refreshForCustomer);
+    customer.addEventListener('change',refreshForCustomer);
     add.addEventListener('click',()=>addRow().querySelector('.weight-input').focus());
-    clear.addEventListener('click',()=>{
-      rows.innerHTML='';
-      addRow();
-      calculate();
-    });
+    clear.addEventListener('click',()=>{rows.innerHTML='';calculate();});
 
-    addRow();
+    renderPriceCards();
+    calculate();
   </script>
 </body>
 </html>
