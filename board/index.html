@@ -1,216 +1,110 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>三地工作進度板</title>
-  <style>
-    *{box-sizing:border-box}
-    :root{--bg:#f4f6f8;--card:#fff;--text:#202124;--muted:#6b7280;--line:#e4e7eb;--soft:#f8f9fb;--dark:#202124;--danger:#b42318;--danger-bg:#fee4e2;--warn:#9a6700;--warn-bg:#fff3cd;--ok:#067647;--ok-bg:#d1fadf;--blue:#175cd3;--blue-bg:#e8f1ff}
-    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;padding:20px}
-    .app{width:min(1180px,100%);margin:auto}
-    .top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:14px}
-    h1{margin:0 0 6px;font-size:28px}.sub{margin:0;color:var(--muted);font-size:14px}.badge{display:inline-block;margin-top:9px;padding:6px 10px;border-radius:999px;background:var(--warn-bg);color:#7a5a00;font-size:12px;font-weight:800}
-    button,input,select,textarea{font:inherit}
-    .toolbar{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;background:var(--card);padding:14px;border-radius:18px;border:1px solid var(--line);box-shadow:0 5px 18px rgba(0,0,0,.04)}
-    .filters{display:flex;flex-wrap:wrap;gap:8px}.filter{border:1px solid #d5d9df;background:#fff;padding:9px 12px;border-radius:999px;cursor:pointer;font-weight:700}.filter.active{background:var(--dark);color:#fff;border-color:var(--dark)}
-    .search{min-width:230px;border:1px solid #d5d9df;border-radius:12px;padding:10px 12px;outline:none}.search:focus{border-color:#888;box-shadow:0 0 0 3px rgba(0,0,0,.05)}
-    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}.stat{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px}.stat small{display:block;color:var(--muted);margin-bottom:5px}.stat strong{font-size:24px}
-    .stat.urgent{background:#fff7f6}.stat.today{background:#fffbeb}.stat.overdue{background:#fff1f0}
-    .actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.primary,.secondary{border:0;border-radius:12px;padding:11px 14px;font-weight:800;cursor:pointer}.primary{background:var(--dark);color:#fff}.secondary{background:#e9ecef;color:#222}
-    .new-form{display:none;background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px}.new-form.open{display:block}.form-grid{display:grid;grid-template-columns:1.1fr 1.3fr .8fr .8fr .9fr;gap:10px}.field label{display:block;font-size:12px;color:var(--muted);font-weight:700;margin-bottom:5px}.field input,.field select,.field textarea{width:100%;border:1px solid #d7dbe2;border-radius:11px;padding:11px;background:#fff;outline:none}.field textarea{min-height:74px;resize:vertical}.span2{grid-column:span 2}.checkline{display:flex;align-items:center;gap:8px;margin-top:25px;font-weight:800}.checkline input{width:18px;height:18px}
-    .board{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.column{background:#eef1f4;border-radius:18px;padding:12px;min-height:260px}.column-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;padding:0 2px}.column-head h2{font-size:18px;margin:0}.count-pill{background:#fff;border:1px solid var(--line);padding:4px 8px;border-radius:999px;font-size:12px;color:var(--muted);font-weight:700}
-    .cards{display:grid;gap:9px}.work-card{background:#fff;border:1px solid var(--line);border-radius:15px;padding:13px;box-shadow:0 3px 10px rgba(0,0,0,.035)}.work-card.is-urgent{border:2px solid #f97066;background:#fffafa}.work-card.done{opacity:.62}
-    .card-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.vendor{font-size:16px;font-weight:900}.item{font-size:14px;margin-top:3px}.tagrow{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}.tag{font-size:11px;font-weight:800;padding:4px 7px;border-radius:999px;background:#f0f2f5;color:#4b5563}.tag.urgent{background:var(--danger-bg);color:var(--danger)}.tag.today{background:var(--warn-bg);color:var(--warn)}.tag.overdue{background:var(--danger-bg);color:var(--danger)}.tag.future{background:var(--blue-bg);color:var(--blue)}.tag.done{background:var(--ok-bg);color:var(--ok)}
-    .note{font-size:13px;color:#4b5563;background:#f8f9fb;border-radius:10px;padding:9px;margin:8px 0;line-height:1.45}.card-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}.card-controls select{width:100%;border:1px solid #d7dbe2;border-radius:10px;padding:9px;background:#fff}.card-buttons{display:flex;gap:7px;margin-top:8px}.small{flex:1;border:0;border-radius:10px;padding:9px 8px;font-size:12px;font-weight:800;cursor:pointer}.urgent-btn{background:#fff1f0;color:#b42318}.done-btn{background:#eaf7ef;color:#067647}.restore{background:#eceff3;color:#333}
-    .empty{padding:24px 8px;text-align:center;color:#8a919c;font-size:13px}.footer-note{margin-top:12px;color:#777;font-size:12px;text-align:center}
-    @media(max-width:900px){.board{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.form-grid{grid-template-columns:1fr 1fr}.span2{grid-column:span 2}.toolbar{grid-template-columns:1fr}.search{width:100%;min-width:0}}
-    @media(max-width:520px){body{padding:10px}.top{display:block}.stats{grid-template-columns:1fr 1fr}.stat strong{font-size:21px}.form-grid{grid-template-columns:1fr}.span2{grid-column:span 1}.checkline{margin-top:5px}.filters{gap:6px}.filter{padding:8px 10px;font-size:13px}.column{padding:9px}.card-controls{grid-template-columns:1fr}}
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>工廠貨件進度表</title>
+<style>
+*{box-sizing:border-box}:root{--bg:#f4f6f8;--card:#fff;--text:#202124;--muted:#6b7280;--line:#e2e6ea;--dark:#202124;--red:#b42318;--redbg:#fff1f0;--amber:#8a5a00;--amberbg:#fff7d6;--green:#067647;--greenbg:#eaf8ef;--blue:#175cd3;--bluebg:#edf4ff}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;padding:18px}.app{width:min(1280px,100%);margin:auto}h1{margin:0 0 5px;font-size:27px}.sub{margin:0;color:var(--muted);font-size:14px}.demo{display:inline-block;margin-top:8px;padding:5px 9px;border-radius:999px;background:#fff3cd;color:#795b00;font-size:12px;font-weight:800}
+.toolbar{margin-top:14px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}.filter{border:1px solid #d4d8de;background:#fff;border-radius:999px;padding:8px 11px;font-weight:750;cursor:pointer}.filter.active{background:var(--dark);border-color:var(--dark);color:#fff}.search{margin-left:auto;min-width:240px;border:1px solid #d4d8de;border-radius:11px;padding:10px 12px;font:inherit;outline:none}.search:focus{border-color:#888;box-shadow:0 0 0 3px rgba(0,0,0,.05)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:10px 0}.stat{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px}.stat small{display:block;color:var(--muted);margin-bottom:3px}.stat strong{font-size:23px}.stat.urgent{background:#fff8f7}.stat.today{background:#fffbed}.stat.overdue{background:#fff4f3}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.btn{border:0;border-radius:11px;padding:10px 13px;font:inherit;font-weight:800;cursor:pointer}.primary{background:var(--dark);color:#fff}.secondary{background:#e9ecef;color:#222}
+.form{display:none;background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:11px}.form.open{display:block}.formgrid{display:grid;grid-template-columns:1.1fr 1.3fr .8fr .8fr .9fr;gap:9px}.field label{display:block;font-size:12px;color:var(--muted);font-weight:800;margin-bottom:4px}.field input,.field select,.field textarea{width:100%;border:1px solid #d7dbe2;border-radius:10px;padding:10px;font:inherit;background:#fff}.field textarea{min-height:70px;resize:vertical}.span2{grid-column:span 2}.urgentcheck{display:flex;gap:7px;align-items:center;font-weight:800;margin-top:25px}.urgentcheck input{width:18px;height:18px}
+.tablewrap{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:auto;box-shadow:0 4px 14px rgba(0,0,0,.035)}table{width:100%;border-collapse:collapse;min-width:1050px}thead th{position:sticky;top:0;z-index:2;background:#f7f8fa;color:#59616d;font-size:12px;text-align:left;padding:10px;border-bottom:1px solid var(--line);white-space:nowrap}tbody td{padding:9px 10px;border-bottom:1px solid #edf0f2;vertical-align:middle;font-size:14px}tbody tr:last-child td{border-bottom:0}tbody tr:hover{background:#fafbfc}tr.urgent-row{background:#fff8f7}tr.overdue-row{box-shadow:inset 4px 0 #e5484d}tr.today-row{box-shadow:inset 4px 0 #e3a008}tr.done-row{opacity:.55}.vendor{font-weight:850;white-space:nowrap}.item{min-width:170px}.note{max-width:260px;color:#555;line-height:1.35}.due{font-weight:800;white-space:nowrap}.due.overdue{color:var(--red)}.due.today{color:var(--amber)}.pill{display:inline-block;padding:4px 7px;border-radius:999px;font-size:11px;font-weight:850;white-space:nowrap}.pill.urgent{background:#fee4e2;color:var(--red)}.pill.normal{background:#f0f2f5;color:#59616d}.loc,.status{border:1px solid #d8dde3;border-radius:9px;padding:7px 8px;background:#fff;font:inherit;min-width:90px}.status{min-width:115px}.rowbtn{border:0;border-radius:8px;padding:7px 9px;font-size:12px;font-weight:800;cursor:pointer;background:#eef1f4;color:#333}.rowbtn.fire{background:#fff0ef;color:var(--red)}.rowbtn.done{background:var(--greenbg);color:var(--green)}.empty{text-align:center;color:#888;padding:28px!important}.legend{margin-top:9px;color:#777;font-size:12px}.legend span{margin-right:12px}
+@media(max-width:800px){body{padding:10px}.stats{grid-template-columns:1fr 1fr}.search{order:5;margin-left:0;width:100%;min-width:0}.formgrid{grid-template-columns:1fr 1fr}.span2{grid-column:span 2}.tablewrap{border-radius:12px}.toolbar{border-radius:12px}}
+@media(max-width:520px){h1{font-size:23px}.formgrid{grid-template-columns:1fr}.span2{grid-column:span 1}.urgentcheck{margin-top:3px}.stat strong{font-size:20px}}
+</style>
 </head>
 <body>
-  <main class="app">
-    <div class="top">
-      <div>
-        <h1>三地工作進度板</h1>
-        <p class="sub">看貨在哪裡、做到哪裡、哪批急，三個地方的工作一眼看懂。</p>
-        <div class="badge">⚠ 示範版：目前只存在這台瀏覽器，還沒有真正多人共用</div>
-      </div>
+<main class="app">
+  <h1>工廠貨件進度表</h1>
+  <p class="sub">一列一批貨，貨在哪裡、做到哪裡、哪批急，直接往下掃就看得到。</p>
+  <div class="demo">⚠ 示範版：目前資料只存在這台瀏覽器，尚未三地同步</div>
+
+  <section class="toolbar" id="toolbar">
+    <button class="filter active" data-filter="all">全部</button>
+    <button class="filter" data-filter="我這裡">我這裡</button>
+    <button class="filter" data-filter="二廠">二廠</button>
+    <button class="filter" data-filter="三廠">三廠</button>
+    <button class="filter" data-filter="urgent">🔥 急件</button>
+    <button class="filter" data-filter="today">今天要</button>
+    <input id="search" class="search" placeholder="搜尋廠商、貨品、備註">
+  </section>
+
+  <section class="stats">
+    <div class="stat"><small>未完成</small><strong id="openCount">0</strong></div>
+    <div class="stat urgent"><small>🔥 急件</small><strong id="urgentCount">0</strong></div>
+    <div class="stat today"><small>今天要</small><strong id="todayCount">0</strong></div>
+    <div class="stat overdue"><small>已逾期</small><strong id="overdueCount">0</strong></div>
+  </section>
+
+  <div class="actions">
+    <button class="btn primary" id="toggleForm">＋ 新增貨件／待辦</button>
+    <button class="btn secondary" id="showDone">顯示已出貨</button>
+    <button class="btn secondary" id="restoreDemo">恢復示範資料</button>
+  </div>
+
+  <section class="form" id="newForm">
+    <div class="formgrid">
+      <div class="field"><label>廠商</label><input id="fVendor" placeholder="例如：甲公司"></div>
+      <div class="field"><label>貨品／內容</label><input id="fItem" placeholder="例如：軸心 2箱"></div>
+      <div class="field"><label>目前位置</label><select id="fLocation"><option>我這裡</option><option>二廠</option><option>三廠</option></select></div>
+      <div class="field"><label>幾號要</label><input id="fDue" type="date"></div>
+      <div class="field"><label>狀態</label><select id="fStatus"><option>未開始</option><option>處理中</option><option>完成待出貨</option><option>已出貨</option></select></div>
+      <div class="field span2"><label>備註</label><textarea id="fNote" placeholder="客戶會問、先做、要特別研亮…"></textarea></div>
+      <label class="urgentcheck"><input type="checkbox" id="fUrgent">🔥 急件／趕件</label>
     </div>
+    <div class="actions"><button class="btn primary" id="addTask">新增</button><button class="btn secondary" id="cancelForm">取消</button></div>
+  </section>
 
-    <section class="toolbar">
-      <div class="filters" id="filters">
-        <button class="filter active" data-filter="all">全部</button>
-        <button class="filter" data-filter="我這裡">我這裡</button>
-        <button class="filter" data-filter="二廠">二廠</button>
-        <button class="filter" data-filter="三廠">三廠</button>
-        <button class="filter" data-filter="urgent">🔥 急件</button>
-      </div>
-      <input class="search" id="search" placeholder="搜尋廠商、貨品、備註">
-    </section>
-
-    <section class="stats">
-      <div class="stat"><small>未完成</small><strong id="openCount">0</strong></div>
-      <div class="stat urgent"><small>🔥 急件</small><strong id="urgentCount">0</strong></div>
-      <div class="stat today"><small>今天要</small><strong id="todayCount">0</strong></div>
-      <div class="stat overdue"><small>已逾期</small><strong id="overdueCount">0</strong></div>
-    </section>
-
-    <div class="actions">
-      <button class="primary" id="toggleForm">＋ 新增貨件／待辦</button>
-      <button class="secondary" id="showDone">顯示已出貨</button>
-      <button class="secondary" id="restoreDemo">恢復示範資料</button>
-    </div>
-
-    <section class="new-form" id="newForm">
-      <div class="form-grid">
-        <div class="field"><label>廠商</label><input id="fVendor" placeholder="例如：測試甲公司"></div>
-        <div class="field"><label>貨品／內容</label><input id="fItem" placeholder="例如：軸心 2 箱"></div>
-        <div class="field"><label>目前位置</label><select id="fLocation"><option>我這裡</option><option>二廠</option><option>三廠</option></select></div>
-        <div class="field"><label>幾號要</label><input id="fDue" type="date"></div>
-        <div class="field"><label>狀態</label><select id="fStatus"><option>未開始</option><option>處理中</option><option>完成待出貨</option><option>已出貨</option></select></div>
-        <div class="field span2"><label>備註</label><textarea id="fNote" placeholder="例如：客人下午會問、這批先做、要特別研亮"></textarea></div>
-        <label class="checkline"><input type="checkbox" id="fUrgent"> 🔥 標成急件</label>
-      </div>
-      <div class="actions" style="margin-bottom:0"><button class="primary" id="addTask">新增</button><button class="secondary" id="cancelForm">取消</button></div>
-    </section>
-
-    <section class="board" id="board"></section>
-    <div class="footer-note">正式版才會接共用雲端資料庫；現在只是讓你先試操作方式。</div>
-  </main>
-
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>急</th><th>廠商</th><th>貨品／內容</th><th>目前位置</th><th>狀態</th><th>幾號要</th><th>備註</th><th>操作</th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <div class="legend"><span>🔴 左紅線＝逾期</span><span>🟡 左黃線＝今天要</span><span>🔥＝急件</span></div>
+</main>
 <script>
-  const STORE='factory-board-demo-v1';
-  const locations=['我這裡','二廠','三廠'];
-  const statuses=['未開始','處理中','完成待出貨','已出貨'];
-  let activeFilter='all';
-  let showDone=false;
-
-  function dateOffset(days){
-    const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()+days);
-    const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
-    return `${y}-${m}-${day}`;
-  }
-
-  function demoData(){return [
-    {id:crypto.randomUUID(),vendor:'測試甲精密',item:'軸心 A款｜2箱',location:'我這裡',status:'未開始',due:dateOffset(0),urgent:true,note:'客戶今天下午可能會問，這批先處理。'},
-    {id:crypto.randomUUID(),vendor:'測試乙工業',item:'不鏽鋼小件｜1桶',location:'我這裡',status:'處理中',due:dateOffset(2),urgent:false,note:'表面不能刮傷，完成後先通知。'},
-    {id:crypto.randomUUID(),vendor:'測試丙企業',item:'螺絲｜3籃',location:'二廠',status:'處理中',due:dateOffset(1),urgent:true,note:'二廠直送，不會經過我這裡。'},
-    {id:crypto.randomUUID(),vendor:'測試丁科技',item:'鋁件｜4箱',location:'二廠',status:'完成待出貨',due:dateOffset(0),urgent:false,note:'已做好，等客戶車來載。'},
-    {id:crypto.randomUUID(),vendor:'測試戊五金',item:'長件｜1批',location:'二廠',status:'未開始',due:dateOffset(4),urgent:false,note:'一般件，照正常順序。'},
-    {id:crypto.randomUUID(),vendor:'測試己實業',item:'鑄件｜2桶',location:'三廠',status:'未開始',due:dateOffset(-1),urgent:true,note:'昨天應該要出，請優先確認。'},
-    {id:crypto.randomUUID(),vendor:'測試庚有限公司',item:'薄片件｜5盤',location:'三廠',status:'處理中',due:dateOffset(3),urgent:false,note:'研亮時間要久一點。'},
-    {id:crypto.randomUUID(),vendor:'測試辛工業社',item:'特殊小件｜1箱',location:'三廠',status:'已出貨',due:dateOffset(-2),urgent:false,note:'已由客戶自取。'}
-  ];}
-
-  function load(){
-    try{const x=JSON.parse(localStorage.getItem(STORE));if(Array.isArray(x))return x;}catch(e){}
-    const d=demoData();save(d);return d;
-  }
-  function save(data){localStorage.setItem(STORE,JSON.stringify(data));}
-  let tasks=load();
-
-  const board=document.getElementById('board');
-  const search=document.getElementById('search');
-  const newForm=document.getElementById('newForm');
-  const showDoneBtn=document.getElementById('showDone');
-
-  function todayStr(){return dateOffset(0);}
-  function dueClass(task){
-    if(task.status==='已出貨')return 'done';
-    if(!task.due)return 'future';
-    if(task.due<todayStr())return 'overdue';
-    if(task.due===todayStr())return 'today';
-    return 'future';
-  }
-  function dueText(task){
-    if(task.status==='已出貨')return '已出貨';
-    if(!task.due)return '未填日期';
-    if(task.due<todayStr())return `逾期｜${task.due.slice(5).replace('-','/')}`;
-    if(task.due===todayStr())return '今天要';
-    return `${task.due.slice(5).replace('-','/')} 要`;
-  }
-  function esc(s){return String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
-
-  function filtered(){
-    const q=search.value.trim().toLowerCase();
-    return tasks.filter(t=>{
-      if(!showDone && t.status==='已出貨')return false;
-      if(activeFilter==='urgent' && !t.urgent)return false;
-      if(locations.includes(activeFilter) && t.location!==activeFilter)return false;
-      if(q && !`${t.vendor} ${t.item} ${t.note} ${t.status} ${t.location}`.toLowerCase().includes(q))return false;
-      return true;
-    });
-  }
-
-  function renderStats(){
-    const open=tasks.filter(t=>t.status!=='已出貨');
-    document.getElementById('openCount').textContent=open.length;
-    document.getElementById('urgentCount').textContent=open.filter(t=>t.urgent).length;
-    document.getElementById('todayCount').textContent=open.filter(t=>t.due===todayStr()).length;
-    document.getElementById('overdueCount').textContent=open.filter(t=>t.due && t.due<todayStr()).length;
-  }
-
-  function cardHTML(t){
-    const locOpts=locations.map(x=>`<option ${x===t.location?'selected':''}>${esc(x)}</option>`).join('');
-    const statusOpts=statuses.map(x=>`<option ${x===t.status?'selected':''}>${esc(x)}</option>`).join('');
-    return `<article class="work-card ${t.urgent?'is-urgent':''} ${t.status==='已出貨'?'done':''}" data-id="${t.id}">
-      <div class="card-top"><div><div class="vendor">${esc(t.vendor)}</div><div class="item">${esc(t.item)}</div></div></div>
-      <div class="tagrow">${t.urgent?'<span class="tag urgent">🔥 急件</span>':''}<span class="tag ${dueClass(t)}">${esc(dueText(t))}</span><span class="tag">${esc(t.status)}</span></div>
-      ${t.note?`<div class="note">📝 ${esc(t.note)}</div>`:''}
-      <div class="card-controls"><select class="location-select" aria-label="目前位置">${locOpts}</select><select class="status-select" aria-label="工作狀態">${statusOpts}</select></div>
-      <div class="card-buttons"><button class="small urgent-btn">${t.urgent?'取消急件':'🔥 標急件'}</button><button class="small done-btn">${t.status==='已出貨'?'恢復未完成':'✓ 已出貨'}</button></div>
-    </article>`;
-  }
-
-  function render(){
-    renderStats();
-    const list=filtered();
-    board.innerHTML='';
-    locations.forEach(loc=>{
-      const items=list.filter(t=>t.location===loc);
-      const col=document.createElement('section');col.className='column';
-      col.innerHTML=`<div class="column-head"><h2>📍 ${loc}</h2><span class="count-pill">${items.length} 筆</span></div><div class="cards">${items.length?items.map(cardHTML).join(''):'<div class="empty">目前沒有資料</div>'}</div>`;
-      board.append(col);
-    });
-    bindCards();
-  }
-
-  function updateTask(id,patch){tasks=tasks.map(t=>t.id===id?{...t,...patch}:t);save(tasks);render();}
-  function bindCards(){
-    document.querySelectorAll('.work-card').forEach(card=>{
-      const id=card.dataset.id;const t=tasks.find(x=>x.id===id);if(!t)return;
-      card.querySelector('.location-select').addEventListener('change',e=>updateTask(id,{location:e.target.value}));
-      card.querySelector('.status-select').addEventListener('change',e=>updateTask(id,{status:e.target.value}));
-      card.querySelector('.urgent-btn').addEventListener('click',()=>updateTask(id,{urgent:!t.urgent}));
-      card.querySelector('.done-btn').addEventListener('click',()=>updateTask(id,{status:t.status==='已出貨'?'未開始':'已出貨'}));
-    });
-  }
-
-  document.getElementById('filters').addEventListener('click',e=>{
-    const b=e.target.closest('.filter');if(!b)return;
-    activeFilter=b.dataset.filter;
-    document.querySelectorAll('.filter').forEach(x=>x.classList.toggle('active',x===b));
-    render();
-  });
-  search.addEventListener('input',render);
-  document.getElementById('toggleForm').addEventListener('click',()=>newForm.classList.toggle('open'));
-  document.getElementById('cancelForm').addEventListener('click',()=>newForm.classList.remove('open'));
-  showDoneBtn.addEventListener('click',()=>{showDone=!showDone;showDoneBtn.textContent=showDone?'隱藏已出貨':'顯示已出貨';render();});
-  document.getElementById('restoreDemo').addEventListener('click',()=>{tasks=demoData();save(tasks);render();});
-
-  document.getElementById('addTask').addEventListener('click',()=>{
-    const vendor=document.getElementById('fVendor').value.trim();
-    const item=document.getElementById('fItem').value.trim();
-    if(!vendor||!item){alert('至少填廠商和貨品／內容');return;}
-    tasks.unshift({id:crypto.randomUUID(),vendor,item,location:document.getElementById('fLocation').value,status:document.getElementById('fStatus').value,due:document.getElementById('fDue').value,urgent:document.getElementById('fUrgent').checked,note:document.getElementById('fNote').value.trim()});
-    save(tasks);
-    ['fVendor','fItem','fDue','fNote'].forEach(id=>document.getElementById(id).value='');document.getElementById('fUrgent').checked=false;
-    newForm.classList.remove('open');render();
-  });
-
-  document.getElementById('fDue').value=todayStr();
-  render();
+const STORE='factory-board-list-demo-v2';
+const locations=['我這裡','二廠','三廠'];
+const statuses=['未開始','處理中','完成待出貨','已出貨'];
+let activeFilter='all',showDone=false;
+function offset(n){const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()+n);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function id(){return (crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random())}
+function demo(){return [
+{id:id(),vendor:'測試甲精密',item:'軸心 A款｜2箱',location:'我這裡',status:'未開始',due:offset(0),urgent:true,note:'客戶下午可能會問，先做。'},
+{id:id(),vendor:'測試乙工業',item:'不鏽鋼小件｜1桶',location:'我這裡',status:'處理中',due:offset(2),urgent:false,note:'表面不能刮傷。'},
+{id:id(),vendor:'測試丙企業',item:'螺絲｜3籃',location:'二廠',status:'處理中',due:offset(1),urgent:true,note:'二廠直送，不經過我這裡。'},
+{id:id(),vendor:'測試丁科技',item:'鋁件｜4箱',location:'二廠',status:'完成待出貨',due:offset(0),urgent:false,note:'做好，等客戶車來載。'},
+{id:id(),vendor:'測試戊五金',item:'長件｜1批',location:'二廠',status:'未開始',due:offset(4),urgent:false,note:'照正常順序。'},
+{id:id(),vendor:'測試己實業',item:'鑄件｜2桶',location:'三廠',status:'未開始',due:offset(-1),urgent:true,note:'昨天應該要出，優先確認。'},
+{id:id(),vendor:'測試庚有限公司',item:'薄片件｜5盤',location:'三廠',status:'處理中',due:offset(3),urgent:false,note:'研亮時間要久一點。'},
+{id:id(),vendor:'測試辛工業社',item:'特殊小件｜1箱',location:'我這裡',status:'未開始',due:offset(5),urgent:false,note:'客戶下週來拿。'},
+{id:id(),vendor:'測試壬金屬',item:'華司｜6桶',location:'二廠',status:'處理中',due:offset(2),urgent:false,note:'完成後直接送三廠。'},
+{id:id(),vendor:'測試癸精工',item:'套筒｜2籃',location:'三廠',status:'完成待出貨',due:offset(1),urgent:true,note:'明天早上要出。'},
+{id:id(),vendor:'測試子五金',item:'鋁環｜3箱',location:'我這裡',status:'處理中',due:offset(6),urgent:false,note:'先不用趕。'},
+{id:id(),vendor:'測試丑企業',item:'小螺帽｜8籃',location:'二廠',status:'已出貨',due:offset(-2),urgent:false,note:'客戶已自取。'}
+]}
+function load(){try{const x=JSON.parse(localStorage.getItem(STORE));if(Array.isArray(x))return x}catch(e){}const x=demo();save(x);return x}
+function save(x){localStorage.setItem(STORE,JSON.stringify(x))}
+let tasks=load();
+const tbody=document.getElementById('tbody'),search=document.getElementById('search'),newForm=document.getElementById('newForm');
+function today(){return offset(0)}
+function dueType(t){if(t.status==='已出貨')return'done';if(!t.due)return'future';if(t.due<today())return'overdue';if(t.due===today())return'today';return'future'}
+function dueText(t){if(!t.due)return'—';const md=t.due.slice(5).replace('-','/');if(t.status==='已出貨')return md;if(t.due<today())return`逾期 ${md}`;if(t.due===today())return'今天';return md}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function options(list,val){return list.map(x=>`<option ${x===val?'selected':''}>${esc(x)}</option>`).join('')}
+function visible(t){if(!showDone&&t.status==='已出貨')return false;if(activeFilter==='urgent'&&!t.urgent)return false;if(activeFilter==='today'&&t.due!==today())return false;if(locations.includes(activeFilter)&&t.location!==activeFilter)return false;const q=search.value.trim().toLowerCase();if(q&&!`${t.vendor} ${t.item} ${t.note} ${t.location} ${t.status}`.toLowerCase().includes(q))return false;return true}
+function sortTasks(a,b){if(a.status==='已出貨'&&b.status!=='已出貨')return 1;if(b.status==='已出貨'&&a.status!=='已出貨')return-1;if(a.urgent!==b.urgent)return a.urgent?-1:1;return (a.due||'9999').localeCompare(b.due||'9999')}
+function render(){tbody.innerHTML='';const list=tasks.filter(visible).sort(sortTasks);if(!list.length){tbody.innerHTML='<tr><td colspan="8" class="empty">目前沒有符合的資料</td></tr>'}else list.forEach(t=>{const type=dueType(t),tr=document.createElement('tr');tr.className=`${t.urgent?'urgent-row ':''}${type==='overdue'?'overdue-row ':''}${type==='today'?'today-row ':''}${t.status==='已出貨'?'done-row':''}`;tr.innerHTML=`<td><span class="pill ${t.urgent?'urgent':'normal'}">${t.urgent?'🔥 急':'一般'}</span></td><td class="vendor">${esc(t.vendor)}</td><td class="item">${esc(t.item)}</td><td><select class="loc">${options(locations,t.location)}</select></td><td><select class="status">${options(statuses,t.status)}</select></td><td class="due ${type}">${esc(dueText(t))}</td><td class="note">${esc(t.note||'')}</td><td><button class="rowbtn fire">${t.urgent?'取消急件':'設急件'}</button> ${t.status!=='已出貨'?'<button class="rowbtn done">已出貨</button>':''}</td>`;
+tr.querySelector('.loc').onchange=e=>{t.location=e.target.value;save(tasks);render()};tr.querySelector('.status').onchange=e=>{t.status=e.target.value;save(tasks);render()};tr.querySelector('.fire').onclick=()=>{t.urgent=!t.urgent;save(tasks);render()};const db=tr.querySelector('.done');if(db)db.onclick=()=>{t.status='已出貨';save(tasks);render()};tbody.append(tr)});stats()}
+function stats(){const open=tasks.filter(t=>t.status!=='已出貨');document.getElementById('openCount').textContent=open.length;document.getElementById('urgentCount').textContent=open.filter(t=>t.urgent).length;document.getElementById('todayCount').textContent=open.filter(t=>t.due===today()).length;document.getElementById('overdueCount').textContent=open.filter(t=>t.due&&t.due<today()).length}
+document.querySelectorAll('.filter').forEach(b=>b.onclick=()=>{document.querySelectorAll('.filter').forEach(x=>x.classList.remove('active'));b.classList.add('active');activeFilter=b.dataset.filter;render()});search.oninput=render;
+document.getElementById('toggleForm').onclick=()=>newForm.classList.toggle('open');document.getElementById('cancelForm').onclick=()=>newForm.classList.remove('open');document.getElementById('showDone').onclick=e=>{showDone=!showDone;e.target.textContent=showDone?'隱藏已出貨':'顯示已出貨';render()};document.getElementById('restoreDemo').onclick=()=>{tasks=demo();save(tasks);render()};
+document.getElementById('addTask').onclick=()=>{const vendor=document.getElementById('fVendor').value.trim(),item=document.getElementById('fItem').value.trim();if(!vendor||!item){alert('至少填廠商和貨品／內容');return}tasks.push({id:id(),vendor,item,location:document.getElementById('fLocation').value,status:document.getElementById('fStatus').value,due:document.getElementById('fDue').value,urgent:document.getElementById('fUrgent').checked,note:document.getElementById('fNote').value.trim()});save(tasks);['fVendor','fItem','fDue','fNote'].forEach(x=>document.getElementById(x).value='');document.getElementById('fUrgent').checked=false;newForm.classList.remove('open');render()};
+render();
 </script>
 </body>
 </html>
