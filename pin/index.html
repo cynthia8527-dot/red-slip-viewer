@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PIN 尺寸換算</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #f5f6f8;
+      color: #1f2937;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif;
+    }
+    .card {
+      width: min(92vw, 420px);
+      background: white;
+      border-radius: 18px;
+      padding: 28px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.08);
+    }
+    h1 { margin: 0 0 24px; font-size: 24px; text-align: center; }
+    label { display: block; margin: 16px 0 7px; font-size: 15px; font-weight: 700; }
+    input {
+      width: 100%; padding: 14px 15px; border: 1px solid #d1d5db;
+      border-radius: 11px; font-size: 20px; outline: none;
+    }
+    input:focus { border-color: #6b7280; box-shadow: 0 0 0 3px rgba(107,114,128,.12); }
+    .result { margin-top: 24px; padding: 20px; border-radius: 14px; background: #f3f4f6; text-align: center; }
+    .result-title { font-size: 13px; color: #6b7280; margin-bottom: 7px; }
+    #mainResult { min-height: 36px; font-size: 30px; font-weight: 800; letter-spacing: .3px; }
+    #otherResult { min-height: 20px; margin-top: 8px; color: #6b7280; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>PIN 尺寸換算</h1>
+    <label for="diameter">直徑 mm</label>
+    <input id="diameter" type="number" inputmode="decimal" step="any" min="0" placeholder="例如 4.7" autofocus />
+    <label for="length">長度 mm</label>
+    <input id="length" type="number" inputmode="decimal" step="any" min="0" placeholder="例如 30" />
+    <section class="result" aria-live="polite">
+      <div class="result-title">最接近的規格</div>
+      <div id="mainResult">—</div>
+      <div id="otherResult"></div>
+    </section>
+  </main>
+  <script>
+    const diameterInput = document.getElementById('diameter');
+    const lengthInput = document.getElementById('length');
+    const mainResult = document.getElementById('mainResult');
+    const otherResult = document.getElementById('otherResult');
+    const DENOMINATOR = 16;
+    const MM_PER_INCH = 25.4;
+    function gcd(a, b) { while (b) [a, b] = [b, a % b]; return a; }
+    function formatUnits(units) {
+      const whole = Math.floor(units / DENOMINATOR);
+      const remainder = units % DENOMINATOR;
+      if (remainder === 0) return String(whole);
+      const divisor = gcd(remainder, DENOMINATOR);
+      const numerator = remainder / divisor;
+      const denominator = DENOMINATOR / divisor;
+      const fraction = `${numerator}/${denominator}`;
+      return whole > 0 ? `${whole}-${fraction}` : fraction;
+    }
+    function nearestCandidates(mm) {
+      const rawUnits = (mm / MM_PER_INCH) * DENOMINATOR;
+      const lower = Math.max(1, Math.floor(rawUnits));
+      const upper = Math.max(1, Math.ceil(rawUnits));
+      const rounded = Math.max(1, Math.round(rawUnits));
+      return [...new Set([rounded, lower, upper])]
+        .map(units => ({ units, diff: Math.abs(mm - units / DENOMINATOR * MM_PER_INCH) }))
+        .sort((a, b) => a.diff - b.diff);
+    }
+    function updateResult() {
+      const diameter = Number(diameterInput.value);
+      const length = Number(lengthInput.value);
+      if (!(diameter > 0) || !(length > 0)) {
+        mainResult.textContent = '—';
+        otherResult.textContent = '';
+        return;
+      }
+      const d = nearestCandidates(diameter);
+      const l = nearestCandidates(length);
+      const bestD = d[0];
+      const bestL = l[0];
+      mainResult.textContent = `${formatUnits(bestD.units)} × ${formatUnits(bestL.units)}`;
+      const alternatives = [];
+      if (d[1] && (d[1].diff - d[0].diff) <= 0.45) alternatives.push(`${formatUnits(d[1].units)} × ${formatUnits(bestL.units)}`);
+      if (l[1] && (l[1].diff - l[0].diff) <= 0.8) alternatives.push(`${formatUnits(bestD.units)} × ${formatUnits(l[1].units)}`);
+      otherResult.textContent = alternatives.length ? `其他可能：${alternatives.join('、')}` : '';
+    }
+    diameterInput.addEventListener('input', updateResult);
+    lengthInput.addEventListener('input', updateResult);
+  </script>
+</body>
+</html>
