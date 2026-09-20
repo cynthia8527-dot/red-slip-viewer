@@ -1,98 +1,102 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self'; img-src 'self' blob: data:; worker-src blob: https://cdnjs.cloudflare.com; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" />
-  <title>紅單掃描看片器</title>
-  <link rel="stylesheet" href="styles.css" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f4f6f8">
+<title>工廠工具箱</title>
+<style>
+*{box-sizing:border-box}
+:root{font-family:system-ui,-apple-system,"Segoe UI","Noto Sans TC",sans-serif;color:#202124;background:#f4f6f8}
+body{margin:0;min-height:100vh;background:#f4f6f8}
+.wrap{width:min(980px,100%);margin:auto;padding:24px 18px 42px}
+.hero{padding:22px 4px 18px}
+h1{font-size:clamp(28px,7vw,42px);margin:0 0 7px;letter-spacing:-.03em}
+.sub{margin:0;color:#667085;font-size:15px;line-height:1.6}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}
+.card{display:flex;gap:15px;align-items:flex-start;text-decoration:none;color:inherit;background:#fff;border:1px solid #e2e6ea;border-radius:20px;padding:20px;min-height:145px;box-shadow:0 8px 26px rgba(16,24,40,.05);transition:.15s ease}
+.card:active{transform:scale(.985)}
+.icon{width:52px;height:52px;flex:0 0 52px;border-radius:15px;display:grid;place-items:center;font-size:27px;background:#f2f4f7}
+.body{min-width:0}
+.title{font-size:19px;font-weight:900;margin:2px 0 6px}
+.desc{font-size:14px;line-height:1.55;color:#667085}
+.go{margin-top:11px;font-size:13px;font-weight:850;color:#344054}
+.group-title{margin:28px 4px 10px;font-size:13px;font-weight:900;color:#667085;letter-spacing:.08em}
+.note{margin-top:24px;background:#eef4ff;color:#344054;border-radius:15px;padding:13px 15px;font-size:13px;line-height:1.55}
+footer{margin-top:26px;text-align:center;color:#98a2b3;font-size:12px}
+@media(max-width:650px){
+  .wrap{padding:18px 13px 34px}
+  .hero{padding:14px 4px 10px}
+  .grid{grid-template-columns:1fr;gap:10px}
+  .card{min-height:0;padding:17px;border-radius:17px}
+  .icon{width:48px;height:48px;flex-basis:48px}
+  .title{font-size:18px}
+}
+</style>
 </head>
 <body>
-  <header class="topbar">
-    <div>
-      <h1>紅單掃描看片器</h1>
-      <p>安全測試版：檔案只在目前瀏覽器處理，不連 Google Drive。</p>
-    </div>
-    <div class="safe">🔒 本機處理</div>
-  </header>
+<main class="wrap">
+  <section class="hero">
+    <h1>工廠工具箱</h1>
+    <p class="sub">平常會用到的工具全部放這裡。手機把這一頁加到桌面，以後不用再找網址 😇</p>
+  </section>
 
-  <main>
-    <section class="card setup">
-      <div class="uploads">
-        <label class="dropbox">
-          <strong>① 選紅單</strong>
-          <span>PDF / JPG / PNG，可多選</span>
-          <input id="slipInput" type="file" accept="application/pdf,image/*" multiple />
-          <small id="slipCount">尚未選擇</small>
-        </label>
-        <label class="dropbox">
-          <strong>② 選會計 Excel</strong>
-          <span>xlsx / xlsm / xls，可多選</span>
-          <input id="excelInput" type="file" accept=".xlsx,.xlsm,.xls" multiple />
-          <small id="excelCount">尚未選擇</small>
-        </label>
+  <div class="group-title">日常作業</div>
+  <section class="grid">
+    <a class="card" href="./board/">
+      <div class="icon">📦</div>
+      <div class="body">
+        <div class="title">貨件進度表</div>
+        <div class="desc">新增貨件、看目前進度、急件、秤重、出貨紀錄與作廢資料。</div>
+        <div class="go">開啟工具 →</div>
       </div>
-      <div class="actions">
-        <button id="startBtn" class="primary">開始看片</button>
-        <button id="exportBtn">下載校正紀錄 CSV</button>
-        <button id="clearBtn">清除本機紀錄</button>
+    </a>
+
+    <a class="card" href="./calculator/">
+      <div class="icon">🏷️</div>
+      <div class="body">
+        <div class="title">產品／價格／製程</div>
+        <div class="desc">依廠商查看商品、材質、單價、最低計價、製程、備註與照片。</div>
+        <div class="go">開啟工具 →</div>
       </div>
-      <p id="status" class="status">這一版不會要求 Google 帳號授權。</p>
-    </section>
+    </a>
+  </section>
 
-    <section id="viewer" class="viewer hidden">
-      <div class="card preview-card">
-        <div class="panel-head">
-          <div><strong id="fileName">—</strong> <span id="pageLabel" class="muted"></span></div>
-          <div class="toolbar">
-            <button id="prevBtn">← 上一張</button>
-            <button id="nextBtn">下一張 →</button>
-            <button id="rotateBtn">↻ 旋轉</button>
-            <button id="zoomOutBtn">－</button>
-            <span id="zoomLabel" class="muted">100%</span>
-            <button id="zoomInBtn">＋</button>
-          </div>
-        </div>
-        <div class="canvas-wrap">
-          <canvas id="pdfCanvas"></canvas>
-          <img id="imageView" class="hidden" alt="紅單預覽" />
-          <div id="emptyPreview" class="empty">選好紅單後會顯示在這裡。</div>
-        </div>
+  <div class="group-title">紅單工具</div>
+  <section class="grid">
+    <a class="card" href="https://cynthia8527-dot.github.io/red-slip-scanner/">
+      <div class="icon">📷</div>
+      <div class="body">
+        <div class="title">紅單掃描器</div>
+        <div class="desc">手機連拍紅單、自動框紙與裁切，調整影像後輸出 JPG 或 PDF。</div>
+        <div class="go">開啟掃描器 →</div>
       </div>
+    </a>
 
-      <aside class="card form-card">
-        <div class="panel-head">
-          <div><strong>紅單資料</strong><div id="matchBadge" class="badge neutral">尚未比對</div></div>
-          <span id="progress" class="muted"></span>
-        </div>
-        <div class="fields">
-          <label>紅單號<input id="redNo" /></label>
-          <label>日期<input id="date" /></label>
-          <label>客戶<input id="customer" /></label>
-          <label>品名／處理方式<input id="item" /></label>
-          <label>材質<input id="material" /></label>
-          <div class="two"><label>重量<input id="weight" /></label><label>單位<input id="unit" /></label></div>
-          <label>單價<input id="price" /></label>
-        </div>
-        <div class="actions pad">
-          <button id="searchBtn">用紅單號找會計答案</button>
-          <button id="applyBtn" disabled>套用會計欄位</button>
-        </div>
-        <div id="accountingResult" class="result">找到會計資料後會顯示在這裡。</div>
-        <label class="notes">備註<textarea id="notes" rows="2"></textarea></label>
-        <div class="actions pad">
-          <button id="confirmBtn" class="ok">✓ 確認完成</button>
-          <button id="manualBtn" class="warn">⚠ 待人工確認</button>
-        </div>
-        <p id="saveStatus" class="status pad"></p>
-      </aside>
-    </section>
-  </main>
+    <a class="card" href="./red-slip/">
+      <div class="icon">🔎</div>
+      <div class="body">
+        <div class="title">紅單看片／校正</div>
+        <div class="desc">載入紅單與會計 Excel，用紅單號比對答案並留下校正紀錄。</div>
+        <div class="go">開啟工具 →</div>
+      </div>
+    </a>
+  </section>
 
-  <footer>公開的是網頁程式碼；你選進來的紅單與 Excel 不會被上傳到 GitHub。</footer>
+  <div class="group-title">小工具</div>
+  <section class="grid">
+    <a class="card" href="./pin/">
+      <div class="icon">📏</div>
+      <div class="body">
+        <div class="title">PIN 尺寸換算</div>
+        <div class="desc">輸入直徑與長度 mm，快速換算最接近的「幾成幾」規格。</div>
+        <div class="go">開啟工具 →</div>
+      </div>
+    </a>
+  </section>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="app.js"></script>
+  <div class="note">💡 這頁本身不存公司資料，只負責把各個工具集中在一起。之後再做計價器或其他小工具，只要多加一張卡片就可以。</div>
+  <footer>Factory Tools</footer>
+</main>
 </body>
 </html>
