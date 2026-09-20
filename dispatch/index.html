@@ -135,9 +135,8 @@ function updateSelectionBar(){
 }
 function openDetail(id){
   const x=rows.find(r=>r.id===id);if(!x)return;selected=x;$('detail').hidden=false;
-  $('detail').innerHTML=`<div class="actions" style="margin-bottom:12px"><button class="btn primary" id="copyBtn" style="width:100%">📋 複製地址</button></div>
-  <div class="head"><div><h2>${esc(x.name)}</h2><div class="sub">${x.is_active?'啟用中':'已停用'}</div></div>
-  <div class="tools"><button class="btn secondary" id="selectOneBtn">${selectedIds.has(x.id)?'✓ 已選':'選這筆'}</button><button class="btn soft" id="printTwiceBtn">同地址印兩份</button>${isAdmin?'<button class="btn secondary" id="editBtn">修改</button>':''}</div></div>
+  $('detail').innerHTML=`<div class="tools" style="margin-bottom:12px"><button class="btn primary" id="copyBtn">📋 複製地址</button><button class="btn secondary" id="selectOneBtn">${selectedIds.has(x.id)?'✓ 已選':'選這筆'}</button><button class="btn soft" id="printTwiceBtn">同地址印兩份</button>${isAdmin?'<button class="btn secondary" id="editBtn">修改</button>':''}</div>
+  <div class="head"><div><h2>${esc(x.name)}</h2><div class="sub">${x.is_active?'啟用中':'已停用'}</div></div></div>
   <div class="info">
     <div class="box"><b>收件人</b>${esc(tx(x.contact_name))}</div>
     <div class="box"><b>電話</b>${esc(tx(x.phone))}</div>
