@@ -16,7 +16,7 @@ h1{margin:0;font-size:28px}.sub{margin:4px 0 0;color:#667085;font-size:13px;line
 .btn{border:0;border-radius:10px;padding:10px 13px;font-weight:850;cursor:pointer;text-decoration:none;font-size:14px}.primary{background:#202124;color:#fff}.secondary{background:#e9ecef;color:#202124}.soft{background:#eef4ff;color:#344054}.warn{background:#fff3cd;color:#795b00}
 .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
 .card{padding:15px;cursor:pointer;position:relative;min-height:58px;display:flex;align-items:center}.card:hover{background:#fafafa}.card.off{opacity:.58}.card.chosen{outline:3px solid #202124;outline-offset:-3px}.selectBtn{position:absolute;right:10px;top:50%;transform:translateY(-50%);border:1px solid #d7dbe2;background:#fff;border-radius:999px;padding:6px 9px;font-size:12px;font-weight:850;cursor:pointer}.selectBtn.on{background:#202124;color:#fff;border-color:#202124}.name{font-size:18px;font-weight:900;padding-right:68px}
-.detail{padding:18px}.detail h2{margin:0 0 5px;font-size:25px}.info{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}.box{background:#f8fafc;border-radius:11px;padding:10px;line-height:1.55}.box.full{grid-column:1/-1}.box b{display:block;font-size:11px;color:#667085;margin-bottom:3px}
+.detail{padding:12px 0 4px;margin-top:10px;border-top:1px solid #e2e6ea}.detail h2{margin:0 0 5px;font-size:25px}.info{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}.box{background:#f8fafc;border-radius:11px;padding:10px;line-height:1.55}.box.full{grid-column:1/-1}.box b{display:block;font-size:11px;color:#667085;margin-bottom:3px}
 .empty{padding:28px;text-align:center;color:#667085;border:1px dashed #cfd5dc;border-radius:14px;grid-column:1/-1}
 .auth{width:min(430px,calc(100% - 24px));margin:60px auto;background:#fff;border-radius:20px;padding:22px;text-align:center}.auth a{display:inline-block;background:#202124;color:#fff;text-decoration:none;padding:10px 14px;border-radius:10px;font-weight:800}
 .modalback{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);padding:12px;overflow:auto;z-index:20}.modalback.open{display:grid;place-items:start center}.modal{width:min(680px,100%);margin:3vh auto;background:#fff;border-radius:18px;padding:18px}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.full{grid-column:1/-1}label{display:block;font-size:12px;font-weight:800;color:#667085;margin-bottom:4px}input,textarea,select{width:100%;padding:10px;border:1px solid #d7dbe2;border-radius:10px;background:#fff;font-size:15px}textarea{min-height:78px}
@@ -50,6 +50,7 @@ h1{margin:0;font-size:28px}.sub{margin:4px 0 0;color:#667085;font-size:13px;line
 
 <section class="panel">
   <input id="search" class="search" placeholder="搜尋名稱、收件人、電話、地址、備註…">
+  <section id="detail" class="detail" hidden></section>
   <div id="status" class="sub" style="margin-top:8px"></div>
   <div class="printBar">
     <div class="left" id="selectedState">已選 0 / 2 個</div>
@@ -60,8 +61,6 @@ h1{margin:0;font-size:28px}.sub{margin:4px 0 0;color:#667085;font-size:13px;line
   </div>
   <section id="grid" class="grid"></section>
 </section>
-
-<section id="detail" class="panel detail" hidden></section>
 </main>
 
 <div id="editBack" class="modalback"><section class="modal">
@@ -147,7 +146,6 @@ function openDetail(id){
   $('selectOneBtn').onclick=()=>{toggleSelected(x.id);openDetail(x.id)};
   $('printTwiceBtn').onclick=()=>printLocations([x,x]);
   if(isAdmin)$('editBtn').onclick=()=>openEdit(x.id);
-  $('detail').scrollIntoView({behavior:'smooth',block:'start'});
 }
 function locationPrintHtml(x){
   if(!x)return '';
