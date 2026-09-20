@@ -15,7 +15,7 @@ h1{margin:0;font-size:28px}.sub{margin:4px 0 0;color:#667085;font-size:13px;line
 .search{width:100%;padding:12px;border:1px solid #d7dbe2;border-radius:11px;font-size:16px}
 .btn{border:0;border-radius:10px;padding:10px 13px;font-weight:850;cursor:pointer;text-decoration:none;font-size:14px}.primary{background:#202124;color:#fff}.secondary{background:#e9ecef;color:#202124}.soft{background:#eef4ff;color:#344054}.warn{background:#fff3cd;color:#795b00}
 .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
-.card{padding:15px;cursor:pointer;position:relative}.card:hover{background:#fafafa}.card.off{opacity:.58}.card.chosen{outline:3px solid #202124;outline-offset:-3px}.selectBtn{position:absolute;right:10px;top:10px;border:1px solid #d7dbe2;background:#fff;border-radius:999px;padding:6px 9px;font-size:12px;font-weight:850;cursor:pointer}.selectBtn.on{background:#202124;color:#fff;border-color:#202124}.name{font-size:19px;font-weight:900;padding-right:62px}.addr{margin-top:7px;line-height:1.5}.meta{margin-top:7px;color:#667085;font-size:12px;line-height:1.5}.pill{display:inline-block;margin-top:7px;padding:4px 7px;border-radius:999px;background:#eaf8ef;color:#067647;font-size:11px;font-weight:850}.pill.off{background:#f2f4f7;color:#667085}
+.card{padding:15px;cursor:pointer;position:relative;min-height:58px;display:flex;align-items:center}.card:hover{background:#fafafa}.card.off{opacity:.58}.card.chosen{outline:3px solid #202124;outline-offset:-3px}.selectBtn{position:absolute;right:10px;top:50%;transform:translateY(-50%);border:1px solid #d7dbe2;background:#fff;border-radius:999px;padding:6px 9px;font-size:12px;font-weight:850;cursor:pointer}.selectBtn.on{background:#202124;color:#fff;border-color:#202124}.name{font-size:18px;font-weight:900;padding-right:68px}
 .detail{padding:18px}.detail h2{margin:0 0 5px;font-size:25px}.info{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}.box{background:#f8fafc;border-radius:11px;padding:10px;line-height:1.55}.box.full{grid-column:1/-1}.box b{display:block;font-size:11px;color:#667085;margin-bottom:3px}
 .empty{padding:28px;text-align:center;color:#667085;border:1px dashed #cfd5dc;border-radius:14px;grid-column:1/-1}
 .auth{width:min(430px,calc(100% - 24px));margin:60px auto;background:#fff;border-radius:20px;padding:22px;text-align:center}.auth a{display:inline-block;background:#202124;color:#fff;text-decoration:none;padding:10px 14px;border-radius:10px;font-weight:800}
@@ -114,9 +114,6 @@ function render(){
   $('grid').innerHTML=list.length?list.map(x=>`<article class="card ${x.is_active?'':'off'} ${selectedIds.has(x.id)?'chosen':''}" data-id="${x.id}">
     <button class="selectBtn ${selectedIds.has(x.id)?'on':''}" data-select="${x.id}" type="button">${selectedIds.has(x.id)?'✓ 已選':'選取'}</button>
     <div class="name">${esc(x.name)}</div>
-    <div class="addr">${esc(x.address)}</div>
-    <div class="meta">${esc([x.contact_name,x.phone].filter(Boolean).join('｜')||'未填聯絡資料')}</div>
-    <span class="pill ${x.is_active?'':'off'}">${x.is_active?'啟用':'停用'}</span>
   </article>`).join(''):'<div class="empty">目前沒有符合的叫車地點</div>';
   document.querySelectorAll('.card[data-id]').forEach(el=>el.onclick=e=>{if(e.target.closest('[data-select]'))return;openDetail(el.dataset.id)});
   document.querySelectorAll('[data-select]').forEach(el=>el.onclick=e=>{e.stopPropagation();toggleSelected(el.dataset.select)});
@@ -138,8 +135,9 @@ function updateSelectionBar(){
 }
 function openDetail(id){
   const x=rows.find(r=>r.id===id);if(!x)return;selected=x;$('detail').hidden=false;
-  $('detail').innerHTML=`<div class="head"><div><h2>${esc(x.name)}</h2><div class="sub">${x.is_active?'啟用中':'已停用'}</div></div>
-  <div class="tools"><button class="btn soft" id="copyBtn">複製地址</button><button class="btn secondary" id="selectOneBtn">${selectedIds.has(x.id)?'✓ 已選':'選這筆'}</button><button class="btn primary" id="printTwiceBtn">同地址印兩份</button>${isAdmin?'<button class="btn secondary" id="editBtn">修改</button>':''}</div></div>
+  $('detail').innerHTML=`<div class="actions" style="margin-bottom:12px"><button class="btn primary" id="copyBtn" style="width:100%">📋 複製地址</button></div>
+  <div class="head"><div><h2>${esc(x.name)}</h2><div class="sub">${x.is_active?'啟用中':'已停用'}</div></div>
+  <div class="tools"><button class="btn secondary" id="selectOneBtn">${selectedIds.has(x.id)?'✓ 已選':'選這筆'}</button><button class="btn soft" id="printTwiceBtn">同地址印兩份</button>${isAdmin?'<button class="btn secondary" id="editBtn">修改</button>':''}</div></div>
   <div class="info">
     <div class="box"><b>收件人</b>${esc(tx(x.contact_name))}</div>
     <div class="box"><b>電話</b>${esc(tx(x.phone))}</div>
