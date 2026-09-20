@@ -48,7 +48,7 @@ h1{margin:0;font-size:28px}.sub{margin:4px 0 0;color:#667085;font-size:13px;line
 </div>
 
 <section class="panel">
-  <input id="search" class="search" placeholder="搜尋名稱、電話、地址、備註…">
+  <input id="search" class="search" placeholder="搜尋名稱、收件人、電話、地址、備註…">
   <div id="status" class="sub" style="margin-top:8px"></div>
   <section id="grid" class="grid"></section>
 </section>
@@ -60,9 +60,8 @@ h1{margin:0;font-size:28px}.sub{margin:4px 0 0;color:#667085;font-size:13px;line
   <h2 id="editTitle" style="margin-top:0">新增叫車地點</h2>
   <div class="formgrid">
     <div class="full"><label>地點名稱 *</label><input id="fName" placeholder="例如：○○公司、和平路倉庫"></div>
-    <div><label>聯絡人</label><input id="fContact"></div>
+    <div><label>收件人</label><input id="fContact"></div>
     <div><label>電話</label><input id="fPhone"></div>
-    <div><label>傳真</label><input id="fFax"></div>
     <div><label>排序</label><input id="fSort" type="number" step="1" value="0"></div>
     <div><label>狀態</label><select id="fActive"><option value="true">啟用</option><option value="false">停用</option></select></div>
     <div class="full"><label>地址 *</label><input id="fAddress"></div>
@@ -100,7 +99,7 @@ async function load(){
 }
 function visibleRows(){
   const q=$('search').value.trim().toLowerCase();
-  return rows.filter(x=>(isAdmin||x.is_active)&&(!q||[x.name,x.contact_name,x.phone,x.fax,x.address,x.note].some(v=>String(v||'').toLowerCase().includes(q))));
+  return rows.filter(x=>(isAdmin||x.is_active)&&(!q||[x.name,x.contact_name,x.phone,x.address,x.note].some(v=>String(v||'').toLowerCase().includes(q))));
 }
 function render(){
   const list=visibleRows();
@@ -117,9 +116,8 @@ function openDetail(id){
   $('detail').innerHTML=`<div class="head"><div><h2>${esc(x.name)}</h2><div class="sub">${x.is_active?'啟用中':'已停用'}</div></div>
   <div class="tools"><button class="btn soft" id="copyBtn">複製地址</button><button class="btn primary" id="printBtn">列印 A4 半頁×2</button>${isAdmin?'<button class="btn secondary" id="editBtn">修改</button>':''}</div></div>
   <div class="info">
-    <div class="box"><b>聯絡人</b>${esc(tx(x.contact_name))}</div>
+    <div class="box"><b>收件人</b>${esc(tx(x.contact_name))}</div>
     <div class="box"><b>電話</b>${esc(tx(x.phone))}</div>
-    <div class="box"><b>傳真</b>${esc(tx(x.fax))}</div>
     <div class="box full"><b>地址</b>${esc(x.address)}</div>
     <div class="box full"><b>備註</b>${esc(tx(x.note))}</div>
   </div>`;
@@ -130,9 +128,8 @@ function openDetail(id){
 }
 function printLocation(x){
   const html=`<div class="pname">${esc(x.name)}</div>
-  ${x.contact_name?'<div class="pline">聯絡人：'+esc(x.contact_name)+'</div>':''}
+  ${x.contact_name?'<div class="pline">收件人：'+esc(x.contact_name)+'</div>':''}
   ${x.phone?'<div class="pline">電話：'+esc(x.phone)+'</div>':''}
-  ${x.fax?'<div class="pline">傳真：'+esc(x.fax)+'</div>':''}
   <div class="paddress">${esc(x.address)}</div>
   ${x.note?'<div class="pnote">備註：'+esc(x.note)+'</div>':''}`;
   document.querySelectorAll('.printHalf').forEach(el=>el.innerHTML=html);
@@ -141,7 +138,7 @@ function printLocation(x){
 function openEdit(id=null){
   if(!isAdmin)return;editing=id?rows.find(x=>x.id===id):null;const x=editing||{};
   $('editTitle').textContent=id?'修改叫車地點':'新增叫車地點';
-  $('fName').value=x.name||'';$('fContact').value=x.contact_name||'';$('fPhone').value=x.phone||'';$('fFax').value=x.fax||'';
+  $('fName').value=x.name||'';$('fContact').value=x.contact_name||'';$('fPhone').value=x.phone||'';
   $('fAddress').value=x.address||'';$('fNote').value=x.note||'';$('fSort').value=Number(x.sort_order||0);$('fActive').value=String(x.is_active!==false);
   $('editBack').classList.add('open');
 }
@@ -150,7 +147,7 @@ $('cancelBtn').onclick=()=>{$('editBack').classList.remove('open');editing=null}
 $('search').oninput=render;
 $('saveBtn').onclick=async()=>{
   if(!isAdmin)return;
-  const row={name:$('fName').value.trim(),contact_name:$('fContact').value.trim()||null,phone:$('fPhone').value.trim()||null,fax:$('fFax').value.trim()||null,address:$('fAddress').value.trim(),note:$('fNote').value.trim()||null,sort_order:Number($('fSort').value)||0,is_active:$('fActive').value==='true'};
+  const row={name:$('fName').value.trim(),contact_name:$('fContact').value.trim()||null,phone:$('fPhone').value.trim()||null,address:$('fAddress').value.trim(),note:$('fNote').value.trim()||null,sort_order:Number($('fSort').value)||0,is_active:$('fActive').value==='true'};
   if(!row.name||!row.address)return alert('地點名稱和地址都要填');
   $('saveBtn').disabled=true;$('saveBtn').textContent='儲存中…';
   const q=editing?supabase.from('dispatch_locations').update(row).eq('id',editing.id):supabase.from('dispatch_locations').insert(row);
