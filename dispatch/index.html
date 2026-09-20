@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f4f6f8">
+<title>叫車地點簿</title>
+<style>
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;background:#f4f6f8;color:#202124;font-family:system-ui,-apple-system,"Segoe UI","Noto Sans TC",sans-serif}
+main{width:min(920px,calc(100% - 20px));margin:14px auto 40px}
+.homeMini{display:inline-block;margin:0 0 8px;color:#667085;text-decoration:none;font-size:11px;font-weight:800;background:#fff;border:1px solid #e2e6ea;border-radius:999px;padding:4px 8px}
+.head,.tools,.actions,.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.head{justify-content:space-between;align-items:flex-start}
+h1{margin:0;font-size:28px}.sub{margin:4px 0 0;color:#667085;font-size:13px;line-height:1.5}
+.panel,.card{background:#fff;border:1px solid #e2e6ea;border-radius:16px}.panel{padding:14px;margin-top:12px}
+.search{width:100%;padding:12px;border:1px solid #d7dbe2;border-radius:11px;font-size:16px}
+.btn{border:0;border-radius:10px;padding:10px 13px;font-weight:850;cursor:pointer;text-decoration:none;font-size:14px}.primary{background:#202124;color:#fff}.secondary{background:#e9ecef;color:#202124}.soft{background:#eef4ff;color:#344054}.warn{background:#fff3cd;color:#795b00}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
+.card{padding:15px;cursor:pointer}.card:hover{background:#fafafa}.card.off{opacity:.58}.name{font-size:19px;font-weight:900}.addr{margin-top:7px;line-height:1.5}.meta{margin-top:7px;color:#667085;font-size:12px;line-height:1.5}.pill{display:inline-block;margin-top:7px;padding:4px 7px;border-radius:999px;background:#eaf8ef;color:#067647;font-size:11px;font-weight:850}.pill.off{background:#f2f4f7;color:#667085}
+.detail{padding:18px}.detail h2{margin:0 0 5px;font-size:25px}.info{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}.box{background:#f8fafc;border-radius:11px;padding:10px;line-height:1.55}.box.full{grid-column:1/-1}.box b{display:block;font-size:11px;color:#667085;margin-bottom:3px}
+.empty{padding:28px;text-align:center;color:#667085;border:1px dashed #cfd5dc;border-radius:14px;grid-column:1/-1}
+.auth{width:min(430px,calc(100% - 24px));margin:60px auto;background:#fff;border-radius:20px;padding:22px;text-align:center}.auth a{display:inline-block;background:#202124;color:#fff;text-decoration:none;padding:10px 14px;border-radius:10px;font-weight:800}
+.modalback{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);padding:12px;overflow:auto;z-index:20}.modalback.open{display:grid;place-items:start center}.modal{width:min(680px,100%);margin:3vh auto;background:#fff;border-radius:18px;padding:18px}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.full{grid-column:1/-1}label{display:block;font-size:12px;font-weight:800;color:#667085;margin-bottom:4px}input,textarea,select{width:100%;padding:10px;border:1px solid #d7dbe2;border-radius:10px;background:#fff;font-size:15px}textarea{min-height:78px}
+.adminOnly{display:none}.isAdmin .adminOnly{display:inline-flex}
+#printSheet{display:none}
+@media(max-width:650px){.grid,.info,.formgrid{grid-template-columns:1fr}.box.full,.full{grid-column:1}.head .tools{width:100%}.head .tools .btn{flex:1}h1{font-size:24px}}
+@media print{
+ @page{size:A4 portrait;margin:0}
+ body{background:#fff}
+ body>*:not(#printSheet){display:none!important}
+ #printSheet{display:block!important;width:210mm;height:297mm;background:#fff;color:#000}
+ .printHalf{height:148.5mm;padding:18mm 16mm 14mm;display:flex;flex-direction:column;justify-content:center;border-bottom:.25mm dashed #bbb}
+ .printHalf:last-child{border-bottom:0}
+ .pname{font-size:26pt;font-weight:800;margin-bottom:10mm}
+ .pline{font-size:17pt;line-height:1.55;margin:2mm 0}
+ .paddress{font-size:22pt;font-weight:700;line-height:1.5;margin-top:7mm}
+ .pnote{font-size:12pt;color:#444;margin-top:7mm}
+}
+</style>
+</head>
+<body>
+<section id="authGate" class="auth"><h1>叫車地點簿</h1><p>請先從貨件系統登入。</p><a href="../board/">前往登入</a></section>
+
+<main id="app" hidden>
+<a class="homeMini" href="../">← 工具首頁</a>
+<div class="head">
+  <div><h1>🚕 叫車地點簿</h1><p class="sub">獨立於廠商資料。可放廠商、臨時地點、私人地址或其他常用叫車目的地。</p></div>
+  <div class="tools"><button id="newBtn" class="btn primary adminOnly">＋ 新增地點</button></div>
+</div>
+
+<section class="panel">
+  <input id="search" class="search" placeholder="搜尋名稱、電話、地址、備註…">
+  <div id="status" class="sub" style="margin-top:8px"></div>
+  <section id="grid" class="grid"></section>
+</section>
+
+<section id="detail" class="panel detail" hidden></section>
+</main>
+
+<div id="editBack" class="modalback"><section class="modal">
+  <h2 id="editTitle" style="margin-top:0">新增叫車地點</h2>
+  <div class="formgrid">
+    <div class="full"><label>地點名稱 *</label><input id="fName" placeholder="例如：○○公司、和平路倉庫"></div>
+    <div><label>聯絡人</label><input id="fContact"></div>
+    <div><label>電話</label><input id="fPhone"></div>
+    <div><label>傳真</label><input id="fFax"></div>
+    <div><label>排序</label><input id="fSort" type="number" step="1" value="0"></div>
+    <div><label>狀態</label><select id="fActive"><option value="true">啟用</option><option value="false">停用</option></select></div>
+    <div class="full"><label>地址 *</label><input id="fAddress"></div>
+    <div class="full"><label>備註</label><textarea id="fNote" placeholder="司機辨識方式、入口、樓層等"></textarea></div>
+  </div>
+  <div class="actions" style="margin-top:12px"><button id="saveBtn" class="btn primary">儲存</button><button id="cancelBtn" class="btn secondary">取消</button></div>
+</section></div>
+
+<section id="printSheet" aria-hidden="true">
+  <div class="printHalf"></div>
+  <div class="printHalf"></div>
+</section>
+
+<script type="module">
+import {createClient} from 'https://esm.sh/@supabase/supabase-js@2.116.0';
+const supabase=createClient('https://icqdmzndjmxffnlciijs.supabase.co','sb_publishable_PUUgMuSNqlOFDaC8PvQ0KA_EcxNfhF6',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+const $=id=>document.getElementById(id);
+let rows=[],selected=null,editing=null,isAdmin=false;
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const tx=v=>v||'—';
+
+async function init(){
+  const {data:{session}}=await supabase.auth.getSession();
+  if(!session)return;
+  const {data:p}=await supabase.from('profiles').select('role,active').eq('user_id',session.user.id).maybeSingle();
+  if(!p?.active)return;
+  isAdmin=p.role==='admin';document.body.classList.toggle('isAdmin',isAdmin);
+  $('authGate').hidden=true;$('app').hidden=false;await load();
+}
+async function load(){
+  const {data,error}=await supabase.from('dispatch_locations').select('*').order('sort_order').order('name');
+  if(error){$('status').textContent='讀取失敗：'+error.message;return}
+  rows=data||[];$('status').textContent=(isAdmin?rows.length:rows.filter(x=>x.is_active).length)+' 個叫車地點';render();
+  if(selected){const fresh=rows.find(x=>x.id===selected.id);if(fresh)openDetail(fresh.id);else{$('detail').hidden=true;selected=null}}
+}
+function visibleRows(){
+  const q=$('search').value.trim().toLowerCase();
+  return rows.filter(x=>(isAdmin||x.is_active)&&(!q||[x.name,x.contact_name,x.phone,x.fax,x.address,x.note].some(v=>String(v||'').toLowerCase().includes(q))));
+}
+function render(){
+  const list=visibleRows();
+  $('grid').innerHTML=list.length?list.map(x=>`<article class="card ${x.is_active?'':'off'}" data-id="${x.id}">
+    <div class="name">${esc(x.name)}</div>
+    <div class="addr">${esc(x.address)}</div>
+    <div class="meta">${esc([x.contact_name,x.phone].filter(Boolean).join('｜')||'未填聯絡資料')}</div>
+    <span class="pill ${x.is_active?'':'off'}">${x.is_active?'啟用':'停用'}</span>
+  </article>`).join(''):'<div class="empty">目前沒有符合的叫車地點</div>';
+  document.querySelectorAll('[data-id]').forEach(el=>el.onclick=()=>openDetail(el.dataset.id));
+}
+function openDetail(id){
+  const x=rows.find(r=>r.id===id);if(!x)return;selected=x;$('detail').hidden=false;
+  $('detail').innerHTML=`<div class="head"><div><h2>${esc(x.name)}</h2><div class="sub">${x.is_active?'啟用中':'已停用'}</div></div>
+  <div class="tools"><button class="btn soft" id="copyBtn">複製地址</button><button class="btn primary" id="printBtn">列印 A4 半頁×2</button>${isAdmin?'<button class="btn secondary" id="editBtn">修改</button>':''}</div></div>
+  <div class="info">
+    <div class="box"><b>聯絡人</b>${esc(tx(x.contact_name))}</div>
+    <div class="box"><b>電話</b>${esc(tx(x.phone))}</div>
+    <div class="box"><b>傳真</b>${esc(tx(x.fax))}</div>
+    <div class="box full"><b>地址</b>${esc(x.address)}</div>
+    <div class="box full"><b>備註</b>${esc(tx(x.note))}</div>
+  </div>`;
+  $('copyBtn').onclick=async()=>{try{await navigator.clipboard.writeText(x.address);$('copyBtn').textContent='✓ 已複製'}catch{alert(x.address)}};
+  $('printBtn').onclick=()=>printLocation(x);
+  if(isAdmin)$('editBtn').onclick=()=>openEdit(x.id);
+  $('detail').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function printLocation(x){
+  const html=`<div class="pname">${esc(x.name)}</div>
+  ${x.contact_name?'<div class="pline">聯絡人：'+esc(x.contact_name)+'</div>':''}
+  ${x.phone?'<div class="pline">電話：'+esc(x.phone)+'</div>':''}
+  ${x.fax?'<div class="pline">傳真：'+esc(x.fax)+'</div>':''}
+  <div class="paddress">${esc(x.address)}</div>
+  ${x.note?'<div class="pnote">備註：'+esc(x.note)+'</div>':''}`;
+  document.querySelectorAll('.printHalf').forEach(el=>el.innerHTML=html);
+  window.print();
+}
+function openEdit(id=null){
+  if(!isAdmin)return;editing=id?rows.find(x=>x.id===id):null;const x=editing||{};
+  $('editTitle').textContent=id?'修改叫車地點':'新增叫車地點';
+  $('fName').value=x.name||'';$('fContact').value=x.contact_name||'';$('fPhone').value=x.phone||'';$('fFax').value=x.fax||'';
+  $('fAddress').value=x.address||'';$('fNote').value=x.note||'';$('fSort').value=Number(x.sort_order||0);$('fActive').value=String(x.is_active!==false);
+  $('editBack').classList.add('open');
+}
+$('newBtn').onclick=()=>openEdit();
+$('cancelBtn').onclick=()=>{$('editBack').classList.remove('open');editing=null};
+$('search').oninput=render;
+$('saveBtn').onclick=async()=>{
+  if(!isAdmin)return;
+  const row={name:$('fName').value.trim(),contact_name:$('fContact').value.trim()||null,phone:$('fPhone').value.trim()||null,fax:$('fFax').value.trim()||null,address:$('fAddress').value.trim(),note:$('fNote').value.trim()||null,sort_order:Number($('fSort').value)||0,is_active:$('fActive').value==='true'};
+  if(!row.name||!row.address)return alert('地點名稱和地址都要填');
+  $('saveBtn').disabled=true;$('saveBtn').textContent='儲存中…';
+  const q=editing?supabase.from('dispatch_locations').update(row).eq('id',editing.id):supabase.from('dispatch_locations').insert(row);
+  const {error}=await q;
+  $('saveBtn').disabled=false;$('saveBtn').textContent='儲存';
+  if(error)return alert('儲存失敗：'+error.message);
+  $('editBack').classList.remove('open');editing=null;await load();
+};
+init();
+</script>
+</body>
+</html>
