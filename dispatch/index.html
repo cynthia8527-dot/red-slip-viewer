@@ -143,7 +143,7 @@ function openDetail(id){
     <div class="box full"><b>地址</b>${esc(x.address)}</div>
     <div class="box full"><b>備註</b>${esc(tx(x.note))}</div>
   </div>`;
-  $('copyBtn').onclick=async()=>{try{await navigator.clipboard.writeText(x.address);$('copyBtn').textContent='✓ 已複製'}catch{alert(x.address)}};
+  $('copyBtn').onclick=async()=>{const parts=[x.name,x.contact_name?'收件人：'+x.contact_name:null,x.phone?'電話：'+x.phone:null,x.address,x.note?'備註：'+x.note:null].filter(Boolean);const text=parts.join('\n');try{await navigator.clipboard.writeText(text);$('copyBtn').textContent='✓ 已複製完整資訊'}catch{alert(text)}};
   $('selectOneBtn').onclick=()=>{toggleSelected(x.id);openDetail(x.id)};
   $('printTwiceBtn').onclick=()=>printLocations([x,x]);
   if(isAdmin)$('editBtn').onclick=()=>openEdit(x.id);
