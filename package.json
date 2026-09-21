@@ -1,0 +1,14 @@
+{
+  "name": "red-slip-viewer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/run.mjs"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "devDependencies": {
+    "playwright-core": "1.62.1"
+  }
+}

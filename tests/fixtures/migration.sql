@@ -1,0 +1,1 @@
+ALTER TABLE legacy_products ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1;

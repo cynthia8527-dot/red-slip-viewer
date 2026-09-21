@@ -1,0 +1,18 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+test('T014 all data pages load shared environment config', () => {
+  for (const page of ['board', 'calculator', 'dispatch', 'vendors']) {
+    const html = readFileSync(new URL(`../${page}/index.html`, import.meta.url), 'utf8');
+    assert.match(html, /from '\.\.\/config\.js'/, `${page} missing config import`);
+    assert.doesNotMatch(html, /icqdmzndjmxffnlciijs/, `${page} embeds main project ID`);
+  }
+});
+
+test('T015 static smoke: entry pages and data module still exist', () => {
+  for (const page of ['index.html', 'board/index.html', 'calculator/index.html', 'dispatch/index.html', 'vendors/index.html']) {
+    assert.match(readFileSync(new URL(`../${page}`, import.meta.url), 'utf8'), /<html/i, `${page} is not HTML`);
+  }
+  assert.match(readFileSync(new URL('../data/pricing.js', import.meta.url), 'utf8'), /export function priceIsEffective/);
+});

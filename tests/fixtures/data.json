@@ -1,0 +1,17 @@
+{
+  "vendors": [
+    { "id": "vendor-a", "short_name": "旭呈" },
+    { "id": "vendor-b", "short_name": "乙廠" }
+  ],
+  "dispatch": [
+    { "id": "dispatch-a", "name": "旭呈叫車點" }
+  ],
+  "products": [
+    { "id": "product-a", "name": "測試商品", "reference_photo_path": "products/product-a/sample.svg" }
+  ],
+  "prices": [
+    { "id": "price-old", "vendor_id": "vendor-a", "vendor_name": "旭呈", "product_id": "product-a", "unit_price": 70, "effective_date": "2025-01-01", "end_date": "2026-09-10" },
+    { "id": "price-now", "vendor_id": "vendor-a", "vendor_name": "旭呈", "product_id": "product-a", "unit_price": 50, "effective_date": "2026-09-11", "end_date": null },
+    { "id": "price-other", "vendor_id": "vendor-b", "vendor_name": "乙廠", "product_id": "product-a", "unit_price": 90, "effective_date": "2026-01-01", "end_date": null }
+  ]
+}

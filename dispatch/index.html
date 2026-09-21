@@ -85,7 +85,9 @@ h1{margin:0;font-size:28px}.sub{margin:4px 0 0;color:#667085;font-size:13px;line
 
 <script type="module">
 import {createClient} from 'https://esm.sh/@supabase/supabase-js@2.116.0';
-const supabase=createClient('https://icqdmzndjmxffnlciijs.supabase.co','sb_publishable_PUUgMuSNqlOFDaC8PvQ0KA_EcxNfhF6',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+import {resolveConfig} from '../config.js';
+const APP_CONFIG=await resolveConfig();
+const supabase=createClient(APP_CONFIG.supabaseUrl,APP_CONFIG.supabaseKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 const $=id=>document.getElementById(id);
 let rows=[],selected=null,editing=null,isAdmin=false;const selectedIds=new Set();
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

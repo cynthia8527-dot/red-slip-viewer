@@ -33,7 +33,9 @@
 
 <script type="module">
 import {createClient} from 'https://esm.sh/@supabase/supabase-js@2.116.0';
-const supabase=createClient('https://icqdmzndjmxffnlciijs.supabase.co','sb_publishable_PUUgMuSNqlOFDaC8PvQ0KA_EcxNfhF6',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+import {resolveConfig} from '../config.js';
+const APP_CONFIG=await resolveConfig();
+const supabase=createClient(APP_CONFIG.supabaseUrl,APP_CONFIG.supabaseKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 const $=id=>document.getElementById(id);let vendors=[],sites=[],selected=null,isAdmin=false,editingVendor=null,editingSite=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const tx=v=>v||'—';
 async function init(){const {data:{session}}=await supabase.auth.getSession();if(!session)return;const {data:p}=await supabase.from('profiles').select('role,active').eq('user_id',session.user.id).maybeSingle();if(!p?.active)return;isAdmin=p.role==='admin';document.body.classList.toggle('isAdmin',isAdmin);$('authGate').hidden=true;$('app').hidden=false;await load()}
