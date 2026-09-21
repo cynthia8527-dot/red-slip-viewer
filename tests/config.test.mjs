@@ -4,10 +4,18 @@ import { resolveConfig, validateTestConfig } from '../config.js';
 
 const local = { supabaseUrl: 'http://127.0.0.1:54321', supabaseKey: 'local-publishable', storageBucket: 'factory-photos-test' };
 
-test('T001 local Supabase configuration is accepted only on loopback', () => {
+test('T001 test configuration accepts only loopback or the dedicated cloud project', () => {
   assert.equal(validateTestConfig(local).supabaseUrl, 'http://127.0.0.1:54321');
-  for (const host of ['icqdmzndjmxffnlciijs.supabase.co', 'example.supabase.co']) {
-    assert.throws(() => validateTestConfig({ ...local, supabaseUrl: `https://${host}` }), /loopback/);
+  assert.equal(validateTestConfig({ ...local, supabaseUrl: 'https://zfcsuxihpakrsohvcwlr.supabase.co' }).supabaseUrl,
+    'https://zfcsuxihpakrsohvcwlr.supabase.co');
+  for (const url of [
+    'https://icqdmzndjmxffnlciijs.supabase.co',
+    'https://example.supabase.co',
+    'http://zfcsuxihpakrsohvcwlr.supabase.co',
+    'https://zfcsuxihpakrsohvcwlr.supabase.co.evil.example',
+    'https://zfcsuxihpakrsohvcwlr.supabase.co/other',
+  ]) {
+    assert.throws(() => validateTestConfig({ ...local, supabaseUrl: url }), /dedicated cloud test project/);
   }
 });
 
