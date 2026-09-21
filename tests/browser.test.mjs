@@ -3,14 +3,14 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile, access } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { resolve, extname } from 'node:path';
+import { resolve, extname, sep } from 'node:path';
 import { chromium } from 'playwright-core';
 
 const root = resolve(import.meta.dirname, '..');
 const candidates = [process.env.TEST_BROWSER_PATH,
   'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
   'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-  '/usr/bin/chromium', '/usr/bin/google-chrome'].filter(Boolean);
+  '/usr/bin/chromium', '/usr/bin/google-chrome', '/usr/bin/google-chrome-stable'].filter(Boolean);
 const browserPath = candidates.find(existsSync);
 const stubClient = `export function createClient(){return {auth:{getSession:async()=>({data:{session:null}})}}}`;
 
@@ -24,7 +24,7 @@ test('T016 browser smoke: data pages load locally without any main or external d
       return;
     }
     const file = resolve(root, '.' + pathname);
-    if (!file.startsWith(root + '\\') && file !== root) { response.writeHead(403).end(); return; }
+    if (!file.startsWith(root + sep) && file !== root) { response.writeHead(403).end(); return; }
     try {
       await access(file);
       response.writeHead(200, { 'content-type': extname(file) === '.js' ? 'text/javascript' : 'text/html' });
