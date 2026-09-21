@@ -16,3 +16,10 @@ test('T015 static smoke: entry pages and data module still exist', () => {
   }
   assert.match(readFileSync(new URL('../data/pricing.js', import.meta.url), 'utf8'), /export function priceIsEffective/);
 });
+
+test('T023 CI runs offline suite without cloud credentials', () => {
+  const workflow = readFileSync(new URL('../.github/workflows/offline-tests.yml', import.meta.url), 'utf8');
+  assert.match(workflow, /permissions:\s*\n\s*contents: read/);
+  assert.match(workflow, /run: pnpm test/);
+  assert.doesNotMatch(workflow, /\$\{\{\s*secrets\.|SUPABASE_URL|DATABASE_URL|icqdmzndjmxffnlciijs/);
+});

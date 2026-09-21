@@ -1,6 +1,6 @@
 # 測試情境與隔離邊界（第一階段）
 
-本文件把「不希望改壞的核心規則」與「尚未定案的功能」分開。`npm run test` 的通過只代表下表標示的**現有覆蓋層**通過，不代表未提交到此倉庫的 Supabase 資料庫、Edge Functions、備份系統已通過整合驗證。測試不得以 skipped 冒充 passed；完整指令遇到任何 skipped、失敗或無測試都會退出失敗。
+本文件把「不希望改壞的核心規則」與「尚未定案的功能」分開。`npm run test` 的通過只代表下表標示的**現有覆蓋層**通過，不代表未提交到此倉庫的 Supabase 資料庫、Edge Functions、備份系統已通過整合驗證。測試不得以 skipped 冒充 passed；完整指令遇到任何 skipped、失敗或無測試都會退出失敗。情境編號為 T001–T023；T017–T022 是待補或待確認，不計入通過數。
 
 ## 環境與資料邊界
 
@@ -30,6 +30,7 @@
 | T014 | 四個資料頁不再寫死主 URL | 倉庫前端原始碼 | 檢查設定匯入 | 都經共用設定且無主 ID | 是 | `tests/smoke.test.mjs`＋`tests/run.mjs`；靜態防呆 |
 | T015 | 基本入口未遺失 | 倉庫前端原始碼 | 檢查入口及共用函式 | 頁面及模組存在 | 是 | `tests/smoke.test.mjs`；靜態 smoke |
 | T016 | 瀏覽器不發出主環境請求 | 本機伺服器、測試設定與假 Supabase client | 無登入開啟四個資料頁 | 頁面載入、無腳本錯誤、無外部資料請求 | 是 | `tests/browser.test.mjs`；本機瀏覽器 smoke，非完整 UI E2E |
+| T023 | GitHub 自動測試不能取得雲端憑證 | GitHub workflow 檔 | 檢查工作流程權限與指令 | 僅有倉庫唯讀權限、執行全套離線測試、無 Supabase／資料庫密鑰 | 是 | `tests/smoke.test.mjs`＋`.github/workflows/offline-tests.yml`；CI 靜態防呆 |
 
 ## B. 待確認或待取得後端原始碼
 
