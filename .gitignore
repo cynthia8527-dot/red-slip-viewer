@@ -1,3 +1,4 @@
 config.local.js
+tests/cloud/credentials.local.json
 tests/tmp/
 node_modules/

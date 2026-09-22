@@ -26,3 +26,12 @@ test('T024 every cloud SQL case checks the dedicated test-project marker', () =>
     assert.match(sql, new RegExp(`${id} PASS`), `${id} missing explicit pass result`);
   }
 });
+
+test('T024 authenticated cloud runner is test-project-only and ignores local credentials', () => {
+  const runner = readFileSync(new URL('./cloud/authenticated-smoke.mjs', import.meta.url), 'utf8');
+  const ignore = readFileSync(new URL('../.gitignore', import.meta.url), 'utf8');
+  assert.match(runner, new RegExp(`const projectId = '${testProject}'`));
+  assert.match(runner, /const baseUrl = `https:\/\/\$\{projectId\}\.supabase\.co`/);
+  assert.doesNotMatch(runner, new RegExp(mainProject));
+  assert.match(ignore, /^tests\/cloud\/credentials\.local\.json$/m);
+});
