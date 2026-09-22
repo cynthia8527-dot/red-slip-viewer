@@ -16,6 +16,7 @@
 - 若之後決定把貨件新增／換群組原子性修正部署到主環境，須先產生正式且不含測試專案防呆的兩個函式 migration，核對 `security invoker` 與僅 `service_role` 可執行，再部署依賴它們的 Edge Function；不可先部署新 Edge Function，否則新增／換群組會因找不到 RPC 而失敗。
 - 快速新增商品另需正式函式 migration，保留 `security invoker`、管理員檢查及既有商品／價格 RLS；先部署函式、再發佈依賴它的 `board/` 網頁，否則按「新增商品」會失敗。測試專案的 SQL 含專案標記，不能原樣複製到主環境。
 - 貨件重送防重須建立獨立、版本化 migration：先對 `shipments` 新增可空的 request ID／fingerprint（舊列保持 `NULL`，不回填、不改既有 ID），部署唯一索引、成對檢查與新的 `create_shipment_idempotent` 函式；不要覆蓋目前三參數函式。部署前以合成舊資料驗證舊貨件仍可讀、舊 Edge Function 仍可呼叫原函式。資料庫審核通過後才部署呼叫新 RPC 的 Edge Function，最後才部署送出並保存 `Idempotency-Key` 的網頁。
+- 上述舊呼叫相容性已由測試專案的 `T029.sql` 連跑兩次驗證：舊三參數建立與既有修改 RPC 均可讀寫同一貨件，新增防重欄位保持 `NULL`，測後無殘留。這只證明目前候選結構與舊 RPC 相容；正式 migration 仍須從主環境部署前快照重建後再跑一次。
 - 防重 migration 正式化前，先在測試專案執行 `T028.sql` 並做已登入 API 重送：第一次請求的回應由測試端故意丟棄，再以相同 key／內容重送，確認只存在一筆貨件及一筆群組；同 key 改內容須回 409。`tests/cloud/create_shipment_idempotent.sql` 含測試標記，只是候選，不得原樣套到主環境。
 - 先在獨立測試專案用合成舊資料重跑 migration 相容性，確認只新增限制、沒有變更既有欄位或刪除資料；失敗時保留錯誤與差異，不改低測試預期。
 - 正式變更須有部署窗口與可回復的事前備份；套用後對主環境只做唯讀結構與衝突數量核對，**不執行 Txxx 測試、不建立合成資料**。
