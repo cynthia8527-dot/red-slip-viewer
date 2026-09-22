@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const cloudCases = ['T008', 'T009', 'T010', 'T011', 'T012', 'T018', 'T021'];
+const cloudCases = ['T008', 'T009', 'T010', 'T011', 'T012', 'T018', 'T021', 'T026'];
 const testProject = 'zfcsuxihpakrsohvcwlr';
 const mainProject = 'icqdmzndjmxffnlciijs';
 
