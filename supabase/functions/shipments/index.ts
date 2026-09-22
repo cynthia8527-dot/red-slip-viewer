@@ -131,6 +131,48 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}))
 
     if (req.method === 'POST') {
+      if (body.action === 'attach_photo') {
+        const id = String(body.id || '').trim()
+        const storagePath = String(body.storage_path || '').trim()
+        const expectedPrefix = `shipments/${id}/`
+        if (!id || !storagePath || !storagePath.startsWith(expectedPrefix) || storagePath.length === expectedPrefix.length) {
+          return json({ error: 'id and matching shipment photo path are required' }, 400)
+        }
+        const { data: shipment, error: shipmentErr } = await admin.from('shipments').select('id').eq('id', id).eq('is_demo', false).single()
+        if (shipmentErr || !shipment) return json({ error: 'shipment not found' }, 404)
+
+        const existingPhoto = async () => admin.from('shipment_photos')
+          .select('id,shipment_id,storage_path,caption,created_at')
+          .eq('storage_path', storagePath)
+          .maybeSingle()
+        const firstLookup = await existingPhoto()
+        if (firstLookup.error) throw firstLookup.error
+        if (firstLookup.data) {
+          if (firstLookup.data.shipment_id !== id) return json({ error: 'photo path belongs to another shipment' }, 409)
+          return json({ photo: firstLookup.data, replayed: true })
+        }
+
+        const inserted = await admin.from('shipment_photos')
+          .insert({ shipment_id: id, storage_path: storagePath })
+          .select('id,shipment_id,storage_path,caption,created_at')
+          .single()
+        if (inserted.error) {
+          // A concurrent retry may have inserted the same path after our lookup.
+          // Recheck before cleanup so a valid linked object is never removed.
+          const retryLookup = await existingPhoto()
+          if (retryLookup.error) throw retryLookup.error
+          if (retryLookup.data?.shipment_id === id) return json({ photo: retryLookup.data, replayed: true })
+          if (retryLookup.data) return json({ error: 'photo path belongs to another shipment' }, 409)
+          const paths = [storagePath]
+          const { error: cleanupErr } = await admin.storage.from('factory-photos').remove(paths)
+          if (cleanupErr) {
+            return json({ error: `photo link failed and uploaded object cleanup failed: ${inserted.error.message || inserted.error}` }, 500)
+          }
+          throw new Error(inserted.error.message || 'photo metadata insert failed')
+        }
+        return json({ photo: inserted.data, replayed: false }, 201)
+      }
+
       const createRequestId = requestId(req)
       if (!createRequestId) return json({ error: 'Idempotency-Key must be a UUID' }, 400)
       const vendorName = String(body.vendor_name || '').trim()

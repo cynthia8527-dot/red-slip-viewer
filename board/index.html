@@ -84,7 +84,7 @@ async function uploadShipmentPhotos(shipmentId,fileList,stateEl){
     const safe=(file.name||'photo').replace(/[^a-zA-Z0-9._-]+/g,'_').replace(/\.[^.]+$/,'')||'photo';
     const path=`shipments/${shipmentId}/${Date.now()}_${done}_${safe}.jpg`;
     const {error:ue}=await supabaseClient.storage.from(APP_CONFIG.storageBucket).upload(path,blob,{contentType:'image/jpeg',upsert:false});if(ue)throw ue;
-    const {error:re}=await supabaseClient.from('shipment_photos').insert({shipment_id:shipmentId,storage_path:path});if(re)throw re;
+    const linked=await authFetch(SHIP_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'attach_photo',id:shipmentId,storage_path:path})});if(!linked.ok)throw new Error(await linked.text());
     done++;
   }
   if(stateEl)stateEl.textContent=`✓ 已上傳 ${done} 張`;

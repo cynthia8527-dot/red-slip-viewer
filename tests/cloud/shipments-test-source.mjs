@@ -9,8 +9,8 @@ const testBucketCall = "admin.storage.from('factory-photos-test').remove(paths)"
 export function buildTestShipmentsSource(projectId) {
   if (projectId !== testProject) throw new Error('Only the dedicated test project is allowed');
   const original = readFileSync(new URL('../../supabase/functions/shipments/index.ts', import.meta.url), 'utf8');
-  if (original.split(mainBucketCall).length !== 2 || original.includes(testBucketCall)) {
+  if (original.split(mainBucketCall).length !== 3 || original.includes(testBucketCall)) {
     throw new Error('Unexpected shipments source: review the bucket mapping before deployment');
   }
-  return original.replace(mainBucketCall, testBucketCall);
+  return original.replaceAll(mainBucketCall, testBucketCall);
 }

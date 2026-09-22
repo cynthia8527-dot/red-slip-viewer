@@ -43,6 +43,15 @@ test('T021 shipment success is not reported as a failed create when photo upload
   assert.match(createHandler, /resetShipmentCreateForm\(\)/);
 });
 
+test('T021 shipment photo metadata uses the cleanup-aware Edge endpoint', () => {
+  const board = readFileSync(new URL('../board/index.html', import.meta.url), 'utf8');
+  const upload = board.split('async function uploadShipmentPhotos(')[1]?.split('async function loadShipmentPhotos(')[0];
+  assert.ok(upload, 'shipment photo upload helper is missing');
+  assert.match(upload, /action:'attach_photo'/);
+  assert.match(upload, /storage_path:path/);
+  assert.doesNotMatch(upload, /from\('shipment_photos'\)\.insert/);
+});
+
 test('T023 CI runs offline suite without cloud credentials', () => {
   const workflow = readFileSync(new URL('../.github/workflows/offline-tests.yml', import.meta.url), 'utf8');
   assert.match(workflow, /permissions:\s*\n\s*contents: read/);

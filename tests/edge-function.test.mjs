@@ -11,19 +11,31 @@ test('T025 shipment function test deployment maps only the photo bucket', () => 
   const original = readFileSync(new URL('../supabase/functions/shipments/index.ts', import.meta.url), 'utf8');
   const mapped = buildTestShipmentsSource('zfcsuxihpakrsohvcwlr');
   assert.equal(mapped,
-    original.replace("admin.storage.from('factory-photos').remove(paths)",
+    original.replaceAll("admin.storage.from('factory-photos').remove(paths)",
       "admin.storage.from('factory-photos-test').remove(paths)"));
   assert.doesNotMatch(mapped, /admin\.storage\.from\('factory-photos'\)/);
 });
 
-function shipmentHandlerWithFakeDatabase() {
+function shipmentHandlerWithFakeDatabase(options = {}) {
   const source = readFileSync(new URL('../supabase/functions/shipments/index.ts', import.meta.url), 'utf8')
     .replace(/^import[^\n]+\n/gm, '');
-  const calls = { intakeGroups: 0, atomicCreates: [], atomicUpdates: [] };
+  const calls = { intakeGroups: 0, atomicCreates: [], atomicUpdates: [], photoInserts: [], storageRemovals: [] };
   const createdByRequest = new Map();
+  const photosByPath = new Map();
   const userId = '00000000-0000-4000-8000-000000000001';
   const admin = {
     auth: { getUser: async () => ({ data: { user: { id: userId } }, error: null }) },
+    storage: {
+      from(bucket) {
+        assert.equal(bucket, 'factory-photos');
+        return { async remove(paths) {
+          calls.storageRemovals.push([...paths]);
+          return options.storageRemoveError
+            ? { data: null, error: { message: 'forced storage cleanup failure' } }
+            : { data: paths.map(name => ({ name })), error: null };
+        } };
+      },
+    },
     from(table) {
       if (table === 'profiles') return {
         select() { return this; }, eq() { return this; },
@@ -37,6 +49,30 @@ function shipmentHandlerWithFakeDatabase() {
         select() { return this; }, eq() { return this; },
         async single() { return { data: { id: 'temporary-shipment', vendor_name: 'Test vendor', item_name: 'Test item', location: '蘆洲', status: '未開始', voided_at: null }, error: null }; },
       };
+      if (table === 'shipment_photos') {
+        let insertRow = null;
+        const filters = {};
+        return {
+          select() { return this; },
+          eq(field, value) { filters[field] = value; return this; },
+          insert(row) { insertRow = row; calls.photoInserts.push(row); return this; },
+          async maybeSingle() {
+            return { data: photosByPath.get(filters.storage_path) || null, error: null };
+          },
+          async single() {
+            if (!insertRow) throw new Error('Unexpected shipment_photos single() without insert');
+            if (options.photoInsertError) return { data: null, error: { message: 'forced photo metadata failure' } };
+            const data = {
+              id: `photo-${photosByPath.size + 1}`,
+              ...insertRow,
+              caption: null,
+              created_at: '2026-09-22T00:00:00.000Z',
+            };
+            photosByPath.set(insertRow.storage_path, data);
+            return { data, error: null };
+          },
+        };
+      }
       throw new Error(`Unexpected table: ${table}`);
     },
     async rpc(name, args) {
@@ -141,6 +177,62 @@ test('T017 reusing an Idempotency-Key for changed shipment data is rejected', as
   const changed = await send('Changed item');
   assert.equal(changed.status, 409);
   assert.match((await changed.json()).error, /different shipment data/);
+});
+
+test('T021 failed photo metadata insert removes the just-uploaded Storage object', async () => {
+  const { handler, calls } = shipmentHandlerWithFakeDatabase({ photoInsertError: true });
+  const path = 'shipments/temporary-shipment/failed.jpg';
+  const response = await handler(new Request('https://offline.invalid/shipments', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer offline-test' },
+    body: JSON.stringify({ action: 'attach_photo', id: 'temporary-shipment', storage_path: path }),
+  }));
+  assert.equal(response.status, 500);
+  assert.equal(calls.photoInserts.length, 1);
+  assert.deepEqual(calls.storageRemovals, [[path]]);
+});
+
+test('T021 failed Storage cleanup is reported instead of hidden', async () => {
+  const { handler, calls } = shipmentHandlerWithFakeDatabase({ photoInsertError: true, storageRemoveError: true });
+  const path = 'shipments/temporary-shipment/cleanup-failed.jpg';
+  const response = await handler(new Request('https://offline.invalid/shipments', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer offline-test' },
+    body: JSON.stringify({ action: 'attach_photo', id: 'temporary-shipment', storage_path: path }),
+  }));
+  assert.equal(response.status, 500);
+  assert.match((await response.json()).error, /cleanup failed/);
+  assert.deepEqual(calls.storageRemovals, [[path]]);
+});
+
+test('T021 retrying the same photo path returns the first link without deleting it', async () => {
+  const { handler, calls } = shipmentHandlerWithFakeDatabase();
+  const path = 'shipments/temporary-shipment/retry.jpg';
+  const send = () => handler(new Request('https://offline.invalid/shipments', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer offline-test' },
+    body: JSON.stringify({ action: 'attach_photo', id: 'temporary-shipment', storage_path: path }),
+  }));
+  const first = await send();
+  const retry = await send();
+  assert.equal(first.status, 201);
+  assert.equal((await first.json()).replayed, false);
+  assert.equal(retry.status, 200);
+  assert.equal((await retry.json()).replayed, true);
+  assert.equal(calls.photoInserts.length, 1);
+  assert.deepEqual(calls.storageRemovals, []);
+});
+
+test('T021 mismatched shipment photo path is rejected before any write', async () => {
+  const { handler, calls } = shipmentHandlerWithFakeDatabase();
+  const response = await handler(new Request('https://offline.invalid/shipments', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer offline-test' },
+    body: JSON.stringify({ action: 'attach_photo', id: 'temporary-shipment', storage_path: 'shipments/another-shipment/wrong.jpg' }),
+  }));
+  assert.equal(response.status, 400);
+  assert.equal(calls.photoInserts.length, 0);
+  assert.deepEqual(calls.storageRemovals, []);
 });
 
 test('T012 grouped PATCH delegates group creation and update to one database call', async () => {
