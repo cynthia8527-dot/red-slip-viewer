@@ -33,6 +33,16 @@ test('T017 shipment create keeps one request key across an uncertain retry', () 
   assert.match(board, /clearShipmentCreateRequest\(request\.key\)/);
 });
 
+test('T021 shipment success is not reported as a failed create when photo upload fails', () => {
+  const board = readFileSync(new URL('../board/index.html', import.meta.url), 'utf8');
+  const createHandler = board.split("$('addTask').onclick=async()=>{")[1]?.split('setInterval(')[0];
+  assert.ok(createHandler, 'shipment create handler is missing');
+  assert.match(createHandler, /if\(!tasks\.some\(x=>x\.id===d\.shipment\.id\)\)/);
+  assert.match(createHandler, /catch\(e\)\{photoError=e\}/);
+  assert.match(createHandler, /貨件已建立，不要再按新增/);
+  assert.match(createHandler, /resetShipmentCreateForm\(\)/);
+});
+
 test('T023 CI runs offline suite without cloud credentials', () => {
   const workflow = readFileSync(new URL('../.github/workflows/offline-tests.yml', import.meta.url), 'utf8');
   assert.match(workflow, /permissions:\s*\n\s*contents: read/);
