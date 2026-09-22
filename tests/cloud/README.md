@@ -7,6 +7,7 @@
 - 已在獨立測試專案重播 13 筆業務結構 migration，原文保存在 `../reference/main-migrations/`。測試部署把圖片桶名稱映射為 `factory-photos-test`。
 - `observed_dispatch_locations.sql`、`observed_shipments_voided_by_index.sql` 是主專案現況存在、但歷史 migration 缺漏的結構重建；`test_project_guard.sql` 僅屬測試防呆。它們已部署到**測試專案**，不可當成已核准的主環境 migration。
 - `enforce_confirmed_data_contracts.sql` 是本階段在**測試專案**套用的三項限制：廠商代碼＋簡稱唯一（兩筆空代碼也視為重複）、叫車名稱＋地址唯一、貨件照片路徑須屬於該貨件。執行前會核對測試專案標記與圖片桶，並檢查舊資料是否衝突；不會自動刪除或修正舊資料。它帶有測試專案專用防呆，**不是可直接套到主環境的 migration**。
+- 測試專案已部署 `shipments` Edge Function，來源為 `../reference/edge-functions/shipments/index.ts`，只把永久刪除時使用的 `factory-photos` 桶映射為 `factory-photos-test`；建構規則在 `shipments-test-source.mjs`，T025 會拒絕主專案 ID 並檢查只有此一處差異。部署仍要求 JWT。已對測試專案執行一次不帶憑證的 GET，得到 HTTP 401；沒有對主環境函式發出測試請求，也沒有修改其部署。
 - 主專案備份相關的 3 筆 migration 沒有部署到測試專案，以免建立排程或複製備份；早期公開讀取測試目錄的 migration 也未重播，因該政策不在主專案現況。
 - 套用上述三項新限制**之前**，已比對 10 個業務表、32 個約束、37 條 RLS 政策及 28 個索引，測試專案與主專案原本現況相符（排除備份表；Storage 政策的 bucket ID 依環境不同）。目前測試專案因這三項限制而有意與主環境不同。
 - 尚未取得只限測試專案、可供命令列安全使用的憑證，因此目前**沒有** `npm run test:cloud`。不要把雲端情境算進 `npm run test` 的綠燈，也不要把主專案密鑰或服務角色金鑰放進 GitHub Actions。
@@ -29,4 +30,4 @@
 
 先前的 **5 Passed／2 Failed／0 Skipped** 揭露 T010、T021 衝突；在**測試專案**加入限制後，最近一次為 **7 Passed／0 Failed／0 Skipped**。T009 的測試圖片路徑夾具同步改成符合新路徑格式，以便專注驗證外鍵拒絕；不是降低預期。T010、T021 已各重跑兩次。最後確認廠商、叫車、商品、價格、貨件、貨件照片、臨時測試帳號與測試圖片均為 0 筆。主環境尚未套用限制，不能宣稱主環境也通過這兩項。
 
-下一步需整理**主環境專用**、先檢查既有資料再套用的正式 migration，並依上線流程審核；這次沒有更動主環境。之後再加測試專用身分／憑證與固定雲端指令、部署可按環境切換 bucket 的 `shipments` 函式，並補真實 Storage 上傳與清理測試。
+主環境正式 migration 的前置檢查與未解決項見 `MAIN_MIGRATION_REVIEW.md`；這次沒有更動主環境。下一步仍需安全的測試專用身分／憑證、固定雲端指令、已登入的貨件函式操作，以及真實 Storage 上傳與清理測試。Google Drive 備份還原仍依要求延後。
