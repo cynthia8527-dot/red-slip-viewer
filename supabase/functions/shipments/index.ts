@@ -152,6 +152,10 @@ Deno.serve(async (req) => {
           return json({ photo: firstLookup.data, replayed: true })
         }
 
+        const { data: objectExists, error: objectExistsErr } = await admin.storage.from('factory-photos').exists(storagePath)
+        if (objectExistsErr) throw objectExistsErr
+        if (!objectExists) return json({ error: 'uploaded photo object not found' }, 409)
+
         const inserted = await admin.from('shipment_photos')
           .insert({ shipment_id: id, storage_path: storagePath })
           .select('id,shipment_id,storage_path,caption,created_at')

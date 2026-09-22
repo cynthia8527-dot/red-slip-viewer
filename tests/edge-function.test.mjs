@@ -11,15 +11,15 @@ test('T025 shipment function test deployment maps only the photo bucket', () => 
   const original = readFileSync(new URL('../supabase/functions/shipments/index.ts', import.meta.url), 'utf8');
   const mapped = buildTestShipmentsSource('zfcsuxihpakrsohvcwlr');
   assert.equal(mapped,
-    original.replaceAll("admin.storage.from('factory-photos').remove(paths)",
-      "admin.storage.from('factory-photos-test').remove(paths)"));
+    original.replaceAll("admin.storage.from('factory-photos')",
+      "admin.storage.from('factory-photos-test')"));
   assert.doesNotMatch(mapped, /admin\.storage\.from\('factory-photos'\)/);
 });
 
 function shipmentHandlerWithFakeDatabase(options = {}) {
   const source = readFileSync(new URL('../supabase/functions/shipments/index.ts', import.meta.url), 'utf8')
     .replace(/^import[^\n]+\n/gm, '');
-  const calls = { intakeGroups: 0, atomicCreates: [], atomicUpdates: [], photoInserts: [], storageRemovals: [] };
+  const calls = { intakeGroups: 0, atomicCreates: [], atomicUpdates: [], photoInserts: [], storageExists: [], storageRemovals: [] };
   const createdByRequest = new Map();
   const photosByPath = new Map();
   const userId = '00000000-0000-4000-8000-000000000001';
@@ -28,12 +28,20 @@ function shipmentHandlerWithFakeDatabase(options = {}) {
     storage: {
       from(bucket) {
         assert.equal(bucket, 'factory-photos');
-        return { async remove(paths) {
-          calls.storageRemovals.push([...paths]);
-          return options.storageRemoveError
-            ? { data: null, error: { message: 'forced storage cleanup failure' } }
-            : { data: paths.map(name => ({ name })), error: null };
-        } };
+        return {
+          async exists(path) {
+            calls.storageExists.push(path);
+            return options.storageExistsError
+              ? { data: null, error: { message: 'forced storage existence failure' } }
+              : { data: options.storageObjectExists !== false, error: null };
+          },
+          async remove(paths) {
+            calls.storageRemovals.push([...paths]);
+            return options.storageRemoveError
+              ? { data: null, error: { message: 'forced storage cleanup failure' } }
+              : { data: paths.map(name => ({ name })), error: null };
+          },
+        };
       },
     },
     from(table) {
@@ -233,6 +241,20 @@ test('T021 mismatched shipment photo path is rejected before any write', async (
   assert.equal(response.status, 400);
   assert.equal(calls.photoInserts.length, 0);
   assert.deepEqual(calls.storageRemovals, []);
+});
+
+test('T021 missing Storage object is rejected before photo metadata insert', async () => {
+  const { handler, calls } = shipmentHandlerWithFakeDatabase({ storageObjectExists: false });
+  const path = 'shipments/temporary-shipment/missing.jpg';
+  const response = await handler(new Request('https://offline.invalid/shipments', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer offline-test' },
+    body: JSON.stringify({ action: 'attach_photo', id: 'temporary-shipment', storage_path: path }),
+  }));
+  assert.equal(response.status, 409);
+  assert.match((await response.json()).error, /object not found/);
+  assert.deepEqual(calls.storageExists, [path]);
+  assert.equal(calls.photoInserts.length, 0);
 });
 
 test('T012 grouped PATCH delegates group creation and update to one database call', async () => {

@@ -46,9 +46,14 @@ test('T021 shipment success is not reported as a failed create when photo upload
 test('T021 shipment photo metadata uses the cleanup-aware Edge endpoint', () => {
   const board = readFileSync(new URL('../board/index.html', import.meta.url), 'utf8');
   const upload = board.split('async function uploadShipmentPhotos(')[1]?.split('async function loadShipmentPhotos(')[0];
+  const attach = board.split('async function attachShipmentPhoto(')[1]?.split('async function uploadShipmentPhotos(')[0];
   assert.ok(upload, 'shipment photo upload helper is missing');
-  assert.match(upload, /action:'attach_photo'/);
-  assert.match(upload, /storage_path:path/);
+  assert.ok(attach, 'shipment photo attach helper is missing');
+  assert.match(attach, /action:'attach_photo'/);
+  assert.match(attach, /storage_path:path/);
+  assert.match(attach, /for\(let attempt=0;attempt<2;attempt\+\+\)/);
+  assert.match(attach, /AbortSignal\.timeout\(15000\)/);
+  assert.match(upload, /await attachShipmentPhoto\(shipmentId,path\)/);
   assert.doesNotMatch(upload, /from\('shipment_photos'\)\.insert/);
 });
 
