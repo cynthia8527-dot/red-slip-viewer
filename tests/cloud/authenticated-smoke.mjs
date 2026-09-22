@@ -26,7 +26,7 @@ function requireTestEnvironment() {
   }
 }
 
-async function request(path, { method = 'GET', token, body } = {}) {
+async function request(path, { method = 'GET', token, body, headers = {} } = {}) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
     signal: AbortSignal.timeout(15000),
@@ -34,6 +34,7 @@ async function request(path, { method = 'GET', token, body } = {}) {
       apikey: key,
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(body ? { 'Content-Type': 'application/json' } : {}),
+      ...headers,
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
@@ -74,8 +75,11 @@ async function run() {
   const rollbackVendor = `CODEX_ROLLBACK_${suffix}`;
   const failedProductName = `CODEX_PRICE_FAIL_${suffix}`;
   const validProductName = `CODEX_PRICE_VALID_${suffix}`;
+  const retryLabel = `CODEX_RETRY_${suffix}`;
+  const retryVendor = `CODEX_RETRY_${suffix}`;
+  const retryKey = randomUUID();
   const productNames = [failedProductName, validProductName];
-  const fixtures = [{ label, vendor }, { label: validLabel, vendor: validVendor }, { label: patchLabel, vendor: validVendor }, { label: rollbackLabel, vendor: rollbackVendor }];
+  const fixtures = [{ label, vendor }, { label: validLabel, vendor: validVendor }, { label: patchLabel, vendor: validVendor }, { label: rollbackLabel, vendor: rollbackVendor }, { label: retryLabel, vendor: retryVendor }];
   let token;
   let failure;
   let cleanupFailure;
@@ -163,6 +167,44 @@ async function run() {
     if (validPatch.status !== 200 || validPatch.data?.shipment?.intake_groups?.label !== patchLabel ||
         validPatch.data.shipment.note !== 'Atomic PATCH test') {
       throw new Error(`valid grouped PATCH expected HTTP 200 and new linked group; got HTTP ${validPatch.status} / ${JSON.stringify(validPatch.data)}`);
+    }
+    passed++;
+    const retryBody = {
+      vendor_name: retryVendor, item_name: 'Idempotent retry test',
+      intake_group_label: retryLabel, location: '蘆洲',
+    };
+    const firstRetryAttempt = await request('/functions/v1/shipments', {
+      method: 'POST', token, body: retryBody,
+      headers: { 'Idempotency-Key': retryKey },
+    });
+    if (firstRetryAttempt.status !== 201 || firstRetryAttempt.data?.replayed !== false ||
+        !firstRetryAttempt.data?.shipment?.id) {
+      throw new Error(`first idempotent request expected HTTP 201 / replayed=false; got HTTP ${firstRetryAttempt.status} / ${JSON.stringify(firstRetryAttempt.data)}`);
+    }
+    // Deliberately do not use the first response to decide what to create next:
+    // resend the exact same logical request as if the client timed out.
+    const repeated = await request('/functions/v1/shipments', {
+      method: 'POST', token, body: retryBody,
+      headers: { 'Idempotency-Key': retryKey },
+    });
+    const repeatedShipments = await request(shipmentPath(retryVendor), { token });
+    const repeatedGroups = await request(groupPath(retryLabel, retryVendor), { token });
+    if (repeated.status !== 201 || repeated.data?.replayed !== true ||
+        repeated.data?.shipment?.id !== firstRetryAttempt.data.shipment.id ||
+        repeatedShipments.status !== 200 || repeatedShipments.data?.length !== 1 ||
+        repeatedGroups.status !== 200 || repeatedGroups.data?.length !== 1) {
+      throw new Error(`retry must return the first shipment and keep one group/row; got ${JSON.stringify({ repeated: repeated.data, shipments: repeatedShipments.data, groups: repeatedGroups.data })}`);
+    }
+    passed++;
+    const changedRetry = await request('/functions/v1/shipments', {
+      method: 'POST', token,
+      body: { ...retryBody, item_name: 'Changed retry data' },
+      headers: { 'Idempotency-Key': retryKey },
+    });
+    const afterChangedRetry = await request(shipmentPath(retryVendor), { token });
+    if (changedRetry.status !== 409 || !/different shipment data/.test(changedRetry.data?.error || '') ||
+        afterChangedRetry.status !== 200 || afterChangedRetry.data?.length !== 1) {
+      throw new Error(`changed data with reused key must be HTTP 409 and keep one shipment; got HTTP ${changedRetry.status} / ${JSON.stringify(changedRetry.data)} / rows=${afterChangedRetry.data?.length ?? 'unknown'}`);
     }
     passed++;
     const priceArgs = {

@@ -10,15 +10,15 @@
 - 測試專案已部署 `shipments` Edge Function，來源為 `../../supabase/functions/shipments/index.ts`，只把永久刪除時使用的 `factory-photos` 桶映射為 `factory-photos-test`；建構規則在 `shipments-test-source.mjs`，T025 會拒絕主專案 ID 並檢查只有這一處環境差異。POST 先驗證必填欄位，再呼叫單一資料庫函式建立群組與貨件；換群組的 PATCH 也由單一資料庫函式完成。部署仍要求 JWT。主環境函式**未部署此修正**。
 - `create_shipment_atomic.sql` 與 `update_shipment_atomic.sql` 已**只在測試專案**安裝：先核對專案標記和測試圖片桶，函式為 `security invoker`，且只授權 Edge Function 使用的 `service_role` 執行，不開放匿名或一般登入者直接呼叫。這是測試階段的 SQL，**不是可直接套到主環境的正式 migration**。
 - `create_product_with_initial_price.sql` 也只在**測試專案**安裝，先核對標記與測試圖片桶；網頁以一般登入者身分呼叫，函式以 `security invoker` 執行，內部檢查管理員，仍受商品及價格的 RLS 政策限制。匿名使用者不能執行。它也是測試階段 SQL，**不是主環境 migration**；草稿分支的 `board/` 快速新增改用此 RPC，不能在主環境缺少正式函式時直接發佈。
-- `create_shipment_idempotent.sql` 是下一步候選，新增可空的 request ID／fingerprint 欄位與另一個 RPC，不覆蓋已部署的舊三參數函式。相同 request ID 會先取得交易級鎖；同內容回傳第一次結果，不同內容拒絕。**目前尚未套用到測試專案，也未部署依賴它的 Edge Function**，所以 T028 不得列為雲端通過。
+- `create_shipment_idempotent.sql` 已只在**測試專案**安裝：新增可空的 request ID／fingerprint 欄位與另一個 RPC，不覆蓋舊三參數函式。相同 request ID 會先取得交易級鎖；同內容回傳第一次結果，不同內容拒絕。測試專案 `shipments` Edge Function 已更新為 v5、仍要求 JWT；主環境未安裝或部署。
 - 主專案備份相關的 3 筆 migration 沒有部署到測試專案，以免建立排程或複製備份；早期公開讀取測試目錄的 migration 也未重播，因該政策不在主專案現況。
 - 套用上述三項新限制**之前**，已比對 10 個業務表、32 個約束、37 條 RLS 政策及 28 個索引，測試專案與主專案原本現況相符（排除備份表；Storage 政策的 bucket ID 依環境不同）。目前測試專案因這三項限制而有意與主環境不同。
 - 已依使用者同意，在**測試專案**保留一個 `codex-cloud@example.invalid` 專用管理測試帳號。此電腦的 `credentials.local.json` 被 git 忽略，密碼由目前 Windows 使用者的 DPAPI 加密；它不能在另一台電腦或其他 Windows 使用者下直接解密。沒有服務角色金鑰，亦沒有把密碼或本機憑證提交到 GitHub。
-- 固定指令 `npm run test:cloud` 只對寫死的測試專案 URL 登入，執行五種貨件與兩種快速新增商品情境，檢查關聯和第二步失敗的回滾，清除它自己建立的群組／貨件／商品／價格並全域登出。缺本機測試憑證會**失敗，不會 skipped**。它不包含 Google Drive、完整 UI、重送防重或所有資料關聯；不得把它算進離線 `npm run test` 的綠燈，也不得把主專案金鑰放進 GitHub Actions。
+- 固定指令 `npm run test:cloud` 只對寫死的測試專案 URL 登入，執行五種原子貨件情境、兩種 T028 重送防重情境及兩種快速新增商品情境；清除它建立的群組／貨件／商品／價格並全域登出。缺本機測試憑證會**失敗，不會 skipped**。它不包含 Google Drive、完整 UI 或所有資料關聯；不得把它算進離線 `npm run test` 的綠燈，也不得把主專案金鑰放進 GitHub Actions。
 
 ## 執行方式與目前結果
 
-目前透過已連接的 Supabase 工具，逐一對**明確指定的測試專案 ID**執行 Txxx.sql；若工具回報 SQL error 就記為 Failed，不可跳過或改成 Passed。這 9 個檔案可重跑：
+目前透過已連接的 Supabase 工具，逐一對**明確指定的測試專案 ID**執行 Txxx.sql；若工具回報 SQL error 就記為 Failed，不可跳過或改成 Passed。這 10 個檔案可重跑：
 
 | 情境 | 現況 | 範圍 |
 |---|---|---|
@@ -31,9 +31,9 @@
 | T021 | Passed | 貨件照片新增或修改成另一貨件的路徑均被拒絕；正確路徑可新增 |
 | T026 | Passed | 真實資料庫 RLS：管理員可新增、員工可讀但不能新增管理員資料、未核准者不可讀寫；使用無密碼的交易內假帳號，最後整筆回滾 |
 | T027 | Passed | 真實管理員可原子建立商品與價格；錯誤價格外鍵不留商品；員工被拒絕。交易內假帳號與資料整筆回滾，重跑兩次通過 |
-| T028 | **Pending** | 候選 SQL 與離線 Edge／網頁測試已建立；尚未部署測試專案、尚未執行 SQL 或已登入逾時重送整合測試 |
+| T028 | Passed（SQL 層） | 相同 request ID／內容回傳同一貨件，只留一筆貨件與群組；同 key 改內容被拒絕；連跑兩次通過且清理為 0。已登入 API 固定情境已加入但尚未執行 |
 
-另一次分階段 T019 驗證：先在舊結構放入合成價格 70，再套用價格歷史 migration，舊列仍為 70 且 `end_date` 為空。這是一次性的真實 migration 驗證，尚未做成可一鍵重建重跑的流程，**不得計入上表的 8 個可重跑情境**。
+另一次分階段 T019 驗證：先在舊結構放入合成價格 70，再套用價格歷史 migration，舊列仍為 70 且 `end_date` 為空。這是一次性的真實 migration 驗證，尚未做成可一鍵重建重跑的流程，**不得計入上表的 10 個可重跑情境**。
 
 先前的 **5 Passed／2 Failed／0 Skipped** 揭露 T010、T021 衝突；在**測試專案**加入限制後，7 個資料情境全通過，再加入 T026／T027 權限與原子性情境，目前可重跑 SQL 層為 **9 Passed／0 Failed／0 Skipped**。T009 的測試圖片路徑夾具同步改成符合新路徑格式，以便專注驗證外鍵拒絕；不是降低預期。T010、T021、T026、T027 已各重跑兩次。主環境尚未套用限制或新函式，不能宣稱主環境也通過。
 
@@ -43,6 +43,6 @@
 
 接著先對舊 PATCH 加入紅燈案例：無效地點使貨件更新失敗，但留下 **1 筆新群組**，整次為 **3 Passed／1 Failed／0 Skipped**；測試清除該群組。修正後，換群組 PATCH 也使用單一資料庫函式，最近一次固定指令為 **5 Passed／0 Failed／0 Skipped**。成功時新群組正確關聯；失敗時新群組為 0 筆、原貨件 ID／群組／地點不變；暫存資料與工作階段清除，專用帳號保留。
 
-快速新增商品原本從網頁分兩次寫入，補救刪除也未檢查結果；草稿分支現改成單一 RPC。已登入測試專案的正常商品＋價格關聯，以及故意讓價格外鍵失敗後商品為 0 筆的情境均通過。最近固定指令為 **7 Passed／0 Failed／0 Skipped**；與上述 SQL 層 9 項分開計數。貨件重送防重已完成候選實作與離線測試，但測試專案尚未部署／實測；完整瀏覽器操作仍未覆蓋。
+快速新增商品原本從網頁分兩次寫入，補救刪除也未檢查結果；草稿分支現改成單一 RPC。已登入測試專案的正常商品＋價格關聯，以及故意讓價格外鍵失敗後商品為 0 筆的情境均通過。最近已實際執行的固定指令仍為 **7 Passed／0 Failed／0 Skipped**；更新後的指令預期共 9 項，其中新增的兩項 T028 因本環境沒有安全登入憑證尚未執行，不能先算 Passed。與上述 SQL 層 10 項分開計數；完整瀏覽器操作仍未覆蓋。
 
-主環境正式 migration 的前置檢查與未解決項見 `MAIN_MIGRATION_REVIEW.md`；這次沒有更動主環境。測試專案匿名登入維持關閉；T026／T027 的交易內假使用者 RLS 測試與已登入 Auth／Edge／Storage smoke 各自記錄。下一步需盤點其他多步寫入、補 API 重送防重與更完整的已登入測試，並審核主環境正式 migration。Google Drive 備份還原仍依要求延後。
+主環境正式 migration 的前置檢查與未解決項見 `MAIN_MIGRATION_REVIEW.md`；這次沒有更動主環境。測試專案匿名登入維持關閉；T026／T027 的交易內假使用者 RLS 測試與已登入 Auth／Edge／Storage smoke 各自記錄。下一步是在原本保存憑證的 Windows 環境執行更新後的 `npm run test:cloud`，再依多步寫入盤點逐項處理；正式 migration 仍須另行審核。Google Drive 備份還原繼續延後。
