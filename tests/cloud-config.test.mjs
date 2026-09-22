@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const cloudCases = ['T008', 'T009', 'T010', 'T011', 'T012', 'T018', 'T021', 'T026', 'T027'];
+const cloudCases = ['T008', 'T009', 'T010', 'T011', 'T012', 'T018', 'T021', 'T026', 'T027', 'T028'];
 const testProject = 'zfcsuxihpakrsohvcwlr';
 const mainProject = 'icqdmzndjmxffnlciijs';
 
@@ -25,6 +25,15 @@ test('T024 every cloud SQL case checks the dedicated test-project marker', () =>
   assert.match(atomic, /security invoker/i);
   assert.match(atomic, /revoke all on function public\.create_shipment_atomic\(jsonb, text, date\) from public, anon, authenticated/i);
   assert.match(atomic, /grant execute on function public\.create_shipment_atomic\(jsonb, text, date\) to service_role/i);
+  const idempotent = readFileSync(new URL('./cloud/create_shipment_idempotent.sql', import.meta.url), 'utf8');
+  assert.match(idempotent, /test_guard\.project_identity/);
+  assert.match(idempotent, new RegExp(testProject));
+  assert.doesNotMatch(idempotent, new RegExp(mainProject));
+  assert.match(idempotent, /security invoker/i);
+  assert.match(idempotent, /pg_catalog\.pg_advisory_xact_lock/i);
+  assert.match(idempotent, /create unique index if not exists shipments_create_request_id_uidx/i);
+  assert.match(idempotent, /revoke all on function public\.create_shipment_idempotent\(jsonb, text, date, uuid, text\) from public, anon, authenticated/i);
+  assert.match(idempotent, /grant execute on function public\.create_shipment_idempotent\(jsonb, text, date, uuid, text\) to service_role/i);
   const atomicUpdate = readFileSync(new URL('./cloud/update_shipment_atomic.sql', import.meta.url), 'utf8');
   assert.match(atomicUpdate, /test_guard\.project_identity/);
   assert.match(atomicUpdate, new RegExp(testProject));

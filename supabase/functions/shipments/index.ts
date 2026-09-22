@@ -38,6 +38,28 @@ function taipeiDate() {
   return `${y}-${m}-${d}`
 }
 
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`
+  if (value && typeof value === 'object') {
+    const row = value as Record<string, unknown>
+    return `{${Object.keys(row).sort().map((key) => `${JSON.stringify(key)}:${stableJson(row[key])}`).join(',')}}`
+  }
+  return JSON.stringify(value) ?? 'null'
+}
+
+async function requestFingerprint(body: unknown) {
+  const bytes = new TextEncoder().encode(stableJson(body))
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+function requestId(req: Request) {
+  const provided = (req.headers.get('Idempotency-Key') || '').trim().toLowerCase()
+  if (!provided) return crypto.randomUUID()
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(provided)) return null
+  return provided
+}
+
 async function priceSnapshot(vendorId: unknown, vendorName: unknown, productId: unknown, weight: unknown) {
   const vendor = String(vendorName || '').trim()
   const vendorMasterId = String(vendorId || '').trim()
@@ -109,6 +131,8 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}))
 
     if (req.method === 'POST') {
+      const createRequestId = requestId(req)
+      if (!createRequestId) return json({ error: 'Idempotency-Key must be a UUID' }, 400)
       const vendorName = String(body.vendor_name || '').trim()
       const itemName = String(body.item_name || '').trim()
       if (!vendorName || !itemName) return json({ error: 'vendor_name and item_name are required' }, 400)
@@ -136,14 +160,20 @@ Deno.serve(async (req) => {
         is_demo: false,
         ...snapshot,
       }
-      // One database statement creates both rows or rolls both back on failure.
-      const { data, error } = await admin.rpc('create_shipment_atomic', {
+      // The request key survives a client retry; the database serializes matching
+      // keys and returns the first committed shipment instead of inserting again.
+      const { data, error } = await admin.rpc('create_shipment_idempotent', {
         p_shipment: row,
         p_group_label: String(body.intake_group_label || '').trim() || null,
         p_received_date: body.received_date || new Date().toISOString().slice(0, 10),
+        p_request_id: createRequestId,
+        p_request_fingerprint: await requestFingerprint(body),
       })
+      if (error?.code === '22023' && /Idempotency-Key/.test(error.message || '')) {
+        return json({ error: error.message }, 409)
+      }
       if (error) throw error
-      return json({ shipment: data }, 201)
+      return json({ shipment: data.shipment, replayed: Boolean(data.replayed) }, 201)
     }
 
     if (req.method === 'PATCH') {

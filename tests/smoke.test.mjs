@@ -25,6 +25,14 @@ test('T012 quick product uses one atomic product-and-price request', () => {
   assert.doesNotMatch(quickSave, /\.from\('products'\)\.insert|\.from\('vendor_prices'\)\.insert|\.from\('products'\)\.delete/);
 });
 
+test('T017 shipment create keeps one request key across an uncertain retry', () => {
+  const board = readFileSync(new URL('../board/index.html', import.meta.url), 'utf8');
+  assert.match(board, /PENDING_SHIPMENT_CREATE/);
+  assert.match(board, /sessionStorage\.setItem\(PENDING_SHIPMENT_CREATE/);
+  assert.match(board, /'Idempotency-Key':request\.key/);
+  assert.match(board, /clearShipmentCreateRequest\(request\.key\)/);
+});
+
 test('T023 CI runs offline suite without cloud credentials', () => {
   const workflow = readFileSync(new URL('../.github/workflows/offline-tests.yml', import.meta.url), 'utf8');
   assert.match(workflow, /permissions:\s*\n\s*contents: read/);
