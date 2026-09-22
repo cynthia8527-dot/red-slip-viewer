@@ -13,6 +13,11 @@ test('T024 every cloud SQL case checks the dedicated test-project marker', () =>
   assert.match(marker, /not exists\s*\(select 1 from storage\.buckets where id = 'factory-photos-test'\)/i);
   assert.match(marker, /exists\s*\(select 1 from storage\.buckets where id = 'factory-photos'\)/i);
   assert.doesNotMatch(marker, new RegExp(mainProject));
+  const contracts = readFileSync(new URL('./cloud/enforce_confirmed_data_contracts.sql', import.meta.url), 'utf8');
+  assert.match(contracts, /test_guard\.project_identity/);
+  assert.match(contracts, new RegExp(testProject));
+  assert.match(contracts, /factory-photos-test/);
+  assert.doesNotMatch(contracts, new RegExp(mainProject));
   for (const id of cloudCases) {
     const sql = readFileSync(new URL(`./cloud/${id}.sql`, import.meta.url), 'utf8');
     assert.match(sql, /test_guard\.project_identity/, `${id} missing database guard`);

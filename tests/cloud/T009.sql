@@ -15,7 +15,8 @@ begin
   begin
     insert into public.shipment_photos (id,shipment_id,storage_path)
     values ('c0d00000-0000-4000-8000-000000000110',
-      'c0d00000-0000-4000-8000-000000000999','shipments/missing/test.svg');
+      'c0d00000-0000-4000-8000-000000000999',
+      'shipments/c0d00000-0000-4000-8000-000000000999/test.svg');
   exception when foreign_key_violation then v_photo_rejected := true;
   end;
   if not v_price_rejected or not v_photo_rejected then
