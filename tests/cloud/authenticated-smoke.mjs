@@ -64,9 +64,10 @@ async function run() {
   const vendor = `CODEX_TEST_${suffix}`;
   const validLabel = `CODEX_VALID_${suffix}`;
   const validVendor = `CODEX_VALID_${suffix}`;
+  const patchLabel = `CODEX_PATCH_${suffix}`;
   const rollbackLabel = `CODEX_ROLLBACK_${suffix}`;
   const rollbackVendor = `CODEX_ROLLBACK_${suffix}`;
-  const fixtures = [{ label, vendor }, { label: validLabel, vendor: validVendor }, { label: rollbackLabel, vendor: rollbackVendor }];
+  const fixtures = [{ label, vendor }, { label: validLabel, vendor: validVendor }, { label: patchLabel, vendor: validVendor }, { label: rollbackLabel, vendor: rollbackVendor }];
   let token;
   let failure;
   let cleanupFailure;
@@ -131,6 +132,31 @@ async function run() {
       throw new Error(`expected 0 groups and 0 shipments after failed insert; got ${rolledBackGroup.data?.length ?? 'unknown'} groups and ${rolledBackShipment.data?.length ?? 'unknown'} shipments`);
     }
     passed++;
+    const invalidPatch = await request('/functions/v1/shipments', {
+      method: 'PATCH', token,
+      body: { id: valid.data.shipment.id, intake_group_label: patchLabel, location: 'INVALID_TEST_LOCATION' },
+    });
+    if (invalidPatch.status !== 500) {
+      throw new Error(`invalid grouped PATCH expected HTTP 500; got HTTP ${invalidPatch.status} / ${JSON.stringify(invalidPatch.data)}`);
+    }
+    const patchGroup = await request(groupPath(patchLabel, validVendor), { token });
+    const unchangedShipment = await request(`/rest/v1/shipments?select=id,intake_group_id,location&id=eq.${valid.data.shipment.id}`, { token });
+    if (patchGroup.status !== 200 || patchGroup.data?.length !== 0 ||
+        unchangedShipment.status !== 200 || unchangedShipment.data?.length !== 1 ||
+        unchangedShipment.data[0].intake_group_id !== valid.data.shipment.intake_group_id ||
+        unchangedShipment.data[0].location !== '蘆洲') {
+      throw new Error(`failed PATCH should leave original shipment and no new group; got ${patchGroup.data?.length ?? 'unknown'} new groups / ${JSON.stringify(unchangedShipment.data)}`);
+    }
+    passed++;
+    const validPatch = await request('/functions/v1/shipments', {
+      method: 'PATCH', token,
+      body: { id: valid.data.shipment.id, intake_group_label: patchLabel, note: 'Atomic PATCH test' },
+    });
+    if (validPatch.status !== 200 || validPatch.data?.shipment?.intake_groups?.label !== patchLabel ||
+        validPatch.data.shipment.note !== 'Atomic PATCH test') {
+      throw new Error(`valid grouped PATCH expected HTTP 200 and new linked group; got HTTP ${validPatch.status} / ${JSON.stringify(validPatch.data)}`);
+    }
+    passed++;
   } catch (error) {
     failure = error;
   } finally {
@@ -177,7 +203,7 @@ async function run() {
     console.error(`CLOUD TEST FAIL: passed=${passed}, failed=${Number(Boolean(failure)) + Number(Boolean(cleanupFailure))}, skipped=0`);
     process.exitCode = 1;
   } else {
-    console.log('T012 PASS: valid grouped shipment worked; invalid-field and failed-insert cases left 0 groups and 0 shipments; test session revoked');
+    console.log('T012 PASS: grouped POST/PATCH succeeded; failed writes left no partial groups or shipments; test session revoked');
     console.log(`CLOUD TEST PASS: passed=${passed}, failed=0, skipped=0`);
   }
 }

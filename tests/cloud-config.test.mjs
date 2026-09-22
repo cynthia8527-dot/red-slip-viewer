@@ -25,6 +25,13 @@ test('T024 every cloud SQL case checks the dedicated test-project marker', () =>
   assert.match(atomic, /security invoker/i);
   assert.match(atomic, /revoke all on function public\.create_shipment_atomic\(jsonb, text, date\) from public, anon, authenticated/i);
   assert.match(atomic, /grant execute on function public\.create_shipment_atomic\(jsonb, text, date\) to service_role/i);
+  const atomicUpdate = readFileSync(new URL('./cloud/update_shipment_atomic.sql', import.meta.url), 'utf8');
+  assert.match(atomicUpdate, /test_guard\.project_identity/);
+  assert.match(atomicUpdate, new RegExp(testProject));
+  assert.doesNotMatch(atomicUpdate, new RegExp(mainProject));
+  assert.match(atomicUpdate, /security invoker/i);
+  assert.match(atomicUpdate, /revoke all on function public\.update_shipment_with_group\(uuid, jsonb, uuid, text, date\) from public, anon, authenticated/i);
+  assert.match(atomicUpdate, /grant execute on function public\.update_shipment_with_group\(uuid, jsonb, uuid, text, date\) to service_role/i);
   for (const id of cloudCases) {
     const sql = readFileSync(new URL(`./cloud/${id}.sql`, import.meta.url), 'utf8');
     assert.match(sql, /test_guard\.project_identity/, `${id} missing database guard`);

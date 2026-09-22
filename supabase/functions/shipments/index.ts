@@ -20,20 +20,6 @@ async function requireFactoryUser(req: Request) {
   return profile ? { user, profile } : null
 }
 
-async function getOrCreateGroup(body: Record<string, unknown>) {
-  const requested = String(body.intake_group_id || '').trim()
-  if (requested) return requested
-  const label = String(body.intake_group_label || '').trim()
-  if (!label) return null
-  const vendor = String(body.vendor_name || '').trim()
-  const receivedDate = String(body.received_date || new Date().toISOString().slice(0,10))
-  const { data: found } = await admin.from('intake_groups').select('id').eq('is_demo', false).eq('vendor_name', vendor).eq('received_date', receivedDate).eq('label', label).maybeSingle()
-  if (found?.id) return found.id
-  const { data, error } = await admin.from('intake_groups').insert({ vendor_name: vendor, received_date: receivedDate, label, is_demo: false }).select('id').single()
-  if (error) throw error
-  return data.id
-}
-
 function isKgUnit(unit: unknown) {
   const u = String(unit || '').trim().toLowerCase()
   return u === 'kg' || u === '公斤' || u === '千克'
@@ -193,7 +179,7 @@ Deno.serve(async (req) => {
       if (Object.prototype.hasOwnProperty.call(body, 'weight_kg')) patch.weight_kg = body.weight_kg === '' || body.weight_kg == null ? null : Number(body.weight_kg)
       if (Object.prototype.hasOwnProperty.call(body, 'urgent')) patch.urgent = Boolean(body.urgent)
       if (Object.prototype.hasOwnProperty.call(body, 'cannot_mix')) patch.cannot_mix = Boolean(body.cannot_mix)
-      if (Object.prototype.hasOwnProperty.call(body, 'intake_group_label')) patch.intake_group_id = await getOrCreateGroup({ ...body, vendor_name: body.vendor_name ?? existing.vendor_name })
+      const changesGroup = Object.prototype.hasOwnProperty.call(body, 'intake_group_label')
 
       if (Object.prototype.hasOwnProperty.call(body, 'status')) {
         if (body.status === '已出貨' && existing.status !== '已出貨') {
@@ -213,6 +199,18 @@ Deno.serve(async (req) => {
         }
       }
       patch.updated_at = new Date().toISOString()
+      if (changesGroup) {
+        // Group creation and shipment update must commit or roll back together.
+        const { data, error } = await admin.rpc('update_shipment_with_group', {
+          p_id: id,
+          p_patch: patch,
+          p_requested_group_id: body.intake_group_id || null,
+          p_group_label: String(body.intake_group_label || '').trim() || null,
+          p_received_date: body.received_date || new Date().toISOString().slice(0, 10),
+        })
+        if (error) throw error
+        return json({ shipment: data })
+      }
       const { data, error } = await admin.from('shipments').update(patch).eq('id', id).eq('is_demo', false).select('*, intake_groups(id,label,received_date)').single()
       if (error) throw error
       return json({ shipment: data })

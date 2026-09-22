@@ -26,7 +26,7 @@
 | T009 | 無效廠商／貨件外鍵不得寫入 | 合成資料、獨立測試庫 | 寫入不存在的廠商／貨件關聯 | 外鍵拒絕 | 是 | `tests/data.test.mjs`＋`tests/cloud/T009.sql`；雲端外鍵通過，圖片路徑另見 T021 |
 | T010 | 相同組合不得意外重複建立 | 合成資料、獨立測試庫 | 重複建立相同「廠商代碼＋簡稱」或「叫車名稱＋地址」；也試不同組合與空代碼 | 相同組合第二筆拒絕，不同組合可建立 | 是 | `tests/data.test.mjs`＋`tests/cloud/T010.sql`；獨立測試專案通過且可重跑，主環境尚未套用限制 |
 | T011 | 貨件價格快照不隨改價變 | 合成資料、獨立測試庫 | 建貨件快照後改價格 | 快照保留原價 | 是 | `tests/data.test.mjs`＋`tests/cloud/T011.sql`；已登入測試專案 Edge Function 實測出貨快照 70、金額 140，後續價格改為 50 時快照不變；紀錄見 `tests/cloud/AUTHENTICATED_SMOKE_2026-09-22.md` |
-| T012 | 錯誤操作不留下半套資料 | 合成資料、獨立測試庫 | 同一資料庫交易先建商品、再寫無效價格；已登入貨件 API 分別送必填缺漏、正常建立及第二步違反地點限制的請求 | 失敗時不留下群組或貨件；正常建立仍可用 | 是 | 資料庫交易測試與**測試專案**新增貨件 API 的三種情境通過（`tests/data.test.mjs`、`tests/cloud/T012.sql`、`tests/cloud/authenticated-smoke.mjs`）。POST 已改為單一資料庫函式；**PATCH 換群組、前端快速新增及其他多步流程未達此保證，T012 整體仍未完全通過** |
+| T012 | 錯誤操作不留下半套資料 | 合成資料、獨立測試庫 | 資料庫交易故意失敗；已登入貨件 API 正常新增／換群組、缺必填欄位、POST／PATCH 第二步違反地點限制 | 失敗時不留下新群組或貨件，原貨件不變；正常操作仍可用 | 是 | 資料庫交易測試與**測試專案** API 的五種情境通過（`tests/data.test.mjs`、`tests/cloud/T012.sql`、`tests/cloud/authenticated-smoke.mjs`）。POST／換群組 PATCH 各改為單一資料庫函式；**前端快速新增及其他多步流程尚未達此保證，T012 整體仍未完全通過** |
 | T013 | migration 後舊資料可讀 | 合成舊版資料 | 執行合成欄位新增 | 舊列保留且取得預設值 | 是 | `tests/data.test.mjs`；遷移模式示例，待真實 migration 驗證 |
 | T014 | 四個資料頁不再寫死主 URL | 倉庫前端原始碼 | 檢查設定匯入 | 都經共用設定且無主 ID | 是 | `tests/smoke.test.mjs`＋`tests/run.mjs`；靜態防呆 |
 | T015 | 基本入口未遺失 | 倉庫前端原始碼 | 檢查入口及共用函式 | 頁面及模組存在 | 是 | `tests/smoke.test.mjs`；靜態 smoke |
@@ -40,7 +40,7 @@
 
 | 編號 | 測試目的 | 前置條件 | 操作 | 預期結果 | 核心規則 | 自動測試位置 |
 |---|---|---|---|---|---|---|
-| T017 | 真實 API 防重與交易性 | 獨立測試庫及安全的測試身分 | 重送建立請求並注入中途錯誤 | 不重複、無半套資料 | 是，尚未完全驗證 | 已登入 `shipments` API 的 POST 第二步失敗已在測試專案驗證回滾；PATCH 換群組及重送防重尚未測；見 `tests/cloud/README.md` |
+| T017 | 真實 API 防重與交易性 | 獨立測試庫及安全的測試身分 | 重送建立請求並注入中途錯誤 | 不重複、無半套資料 | 是，尚未完全驗證 | 已登入 `shipments` API 的 POST 與換群組 PATCH 第二步失敗均在測試專案驗證回滾；重送防重尚未測；見 `tests/cloud/README.md` |
 | T018 | 真實價格替換與出貨快照 | 獨立雲端測試專案、`replace_vendor_price`／`shipments` 原始碼 | 換價、出貨、再換價 | 歷史不覆蓋且快照不改 | 是，部分通過 | `tests/cloud/T018.sql` 的 RPC 通過；另以真實登入身分呼叫測試專案 `shipments` 出貨，後續改價時快照保持 70，見 `tests/cloud/AUTHENTICATED_SMOKE_2026-09-22.md`；此流程尚未納入固定自動化雲端指令 |
 | T019 | 真實 migration 舊資料相容 | 歷史 SQL 與合成舊版樣本 | 僅在獨立測試庫放舊價格後套用價格歷史 migration | 舊價格可讀且原值保留 | 是，首次階段驗證通過 | `tests/reference/main-migrations/`；已實際分階段驗證一次，尚無一鍵重建重跑 |
 | T020 | Google Drive 備份可還原 | 獨立測試雲端位置與測試備份 | 備份、刪除測試副本、還原 | 內容及 ID／關聯一致 | 是，延後 | 尚無；本階段不碰雲端備份 |
@@ -53,8 +53,8 @@
 2. 主專案的 17 筆歷史 SQL 可取回，但 `dispatch_locations` 表及 `shipments_voided_by_idx` 索引不在記錄中；早期公開讀取政策在現況中已不存在。已在**測試專案**用現況重建檔補齊並核對；這些差異不可直接當成新的主環境 migration。
 3. T010 原本在獨立雲端測試庫失敗。產品端已確認：「廠商代碼＋簡稱」相同或「叫車名稱＋地址」相同應擋下第二筆。測試專案已加資料庫唯一限制並通過；**主環境未套用**，且尚未驗證真實 API 的重送冪等性。
 4. T021 原本在獨立雲端測試庫失敗。測試專案已加照片路徑必須以所屬貨件 ID 開頭的資料庫限制並通過；**主環境未套用**。已登入的測試專案 Storage 上傳與清除也已實測一次，但尚未有可重跑的一鍵雲端指令。
-5. 主專案 `shipments` Edge Function 目前把圖片桶 `factory-photos` 寫死，且**未部署這次的 POST 原子性修正**。測試專案部署版本從追蹤中的 `supabase/functions/shipments/index.ts` 建構，僅把該桶映射為 `factory-photos-test`。測試專案另外安裝了 `tests/cloud/create_shipment_atomic.sql`；它有專案標記防呆，**不是主環境 migration**。
-6. **T012／T017 的新增貨件已修、整體仍未結案：**測試專案 POST 現在由單一資料庫函式建立群組和貨件；正常建立與故意讓貨件 insert 違反地點限制的回滾均已實測。PATCH 換收貨群組仍是兩次寫入，前端快速新增商品也仍有半套資料風險；重送請求防重尚未驗證。主環境未部署。
+5. 主專案 `shipments` Edge Function 目前把圖片桶 `factory-photos` 寫死，且**未部署這次的 POST／PATCH 原子性修正**。測試專案部署版本從追蹤中的 `supabase/functions/shipments/index.ts` 建構，僅把該桶映射為 `factory-photos-test`。測試專案另外安裝了 `tests/cloud/create_shipment_atomic.sql`、`update_shipment_atomic.sql`；它們有專案標記防呆，**不是主環境 migration**。
+6. **T012／T017 的貨件群組寫入已修、整體仍未結案：**測試專案 POST 與換群組 PATCH 均由單一資料庫函式寫入；正常操作與故意讓第二步違反地點限制的回滾均已實測。修正前 PATCH 失敗會留下 1 筆群組，修正後不再殘留。前端快速新增商品仍有半套資料風險；重送請求防重尚未驗證。主環境未部署。
 
 ## 維護規則
 
