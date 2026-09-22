@@ -19,7 +19,7 @@ test('T025 shipment function test deployment maps only the photo bucket', () => 
 function shipmentHandlerWithFakeDatabase() {
   const source = readFileSync(new URL('../supabase/functions/shipments/index.ts', import.meta.url), 'utf8')
     .replace(/^import[^\n]+\n/gm, '');
-  const calls = { intakeGroups: 0, shipmentInserts: [] };
+  const calls = { intakeGroups: 0, atomicCreates: [] };
   const userId = '00000000-0000-4000-8000-000000000001';
   const admin = {
     auth: { getUser: async () => ({ data: { user: { id: userId } }, error: null }) },
@@ -32,12 +32,12 @@ function shipmentHandlerWithFakeDatabase() {
         calls.intakeGroups++;
         throw new Error('An invalid shipment must not touch intake groups');
       }
-      if (table === 'shipments') return {
-        insert(row) { calls.shipmentInserts.push(row); return this; },
-        select() { return this; },
-        async single() { return { data: { id: 'temporary-shipment', ...calls.shipmentInserts.at(-1) }, error: null }; },
-      };
       throw new Error(`Unexpected table: ${table}`);
+    },
+    async rpc(name, args) {
+      assert.equal(name, 'create_shipment_atomic');
+      calls.atomicCreates.push(args);
+      return { data: { id: 'temporary-shipment', ...args.p_shipment, intake_groups: null }, error: null };
     },
   };
   let handler;
@@ -67,7 +67,7 @@ test('T012 invalid shipment is rejected before creating an intake group', async 
   assert.equal(response.status, 400);
   assert.deepEqual(await response.json(), { error: 'vendor_name and item_name are required' });
   assert.equal(calls.intakeGroups, 0, 'invalid POST must not create an orphan group');
-  assert.equal(calls.shipmentInserts.length, 0, 'invalid POST must not insert a shipment');
+  assert.equal(calls.atomicCreates.length, 0, 'invalid POST must not start a database write');
 });
 
 test('T012 valid shipment creation still keeps trimmed vendor and item names', async () => {
@@ -75,11 +75,12 @@ test('T012 valid shipment creation still keeps trimmed vendor and item names', a
   const response = await handler(new Request('https://offline.invalid/shipments', {
     method: 'POST',
     headers: { Authorization: 'Bearer offline-test' },
-    body: JSON.stringify({ vendor_name: ' Test vendor ', item_name: ' Test item ', location: '蘆洲' }),
+    body: JSON.stringify({ vendor_name: ' Test vendor ', item_name: ' Test item ', intake_group_label: ' New group ', location: '蘆洲' }),
   }));
   assert.equal(response.status, 201);
-  assert.equal(calls.shipmentInserts.length, 1);
-  assert.equal(calls.shipmentInserts[0].vendor_name, 'Test vendor');
-  assert.equal(calls.shipmentInserts[0].item_name, 'Test item');
+  assert.equal(calls.atomicCreates.length, 1);
+  assert.equal(calls.atomicCreates[0].p_shipment.vendor_name, 'Test vendor');
+  assert.equal(calls.atomicCreates[0].p_shipment.item_name, 'Test item');
+  assert.equal(calls.atomicCreates[0].p_group_label, 'New group');
   assert.equal(calls.intakeGroups, 0);
 });

@@ -126,7 +126,6 @@ Deno.serve(async (req) => {
       const vendorName = String(body.vendor_name || '').trim()
       const itemName = String(body.item_name || '').trim()
       if (!vendorName || !itemName) return json({ error: 'vendor_name and item_name are required' }, 400)
-      const intakeGroupId = await getOrCreateGroup(body)
       const shipped = body.status === '已出貨'
       const snapshot = shipped ? await priceSnapshot(body.vendor_id, body.vendor_name, body.product_id, body.weight_kg) : {}
       const row = {
@@ -145,13 +144,18 @@ Deno.serve(async (req) => {
         urgent: Boolean(body.urgent),
         note: body.note || null,
         shipped_at: shipped ? new Date().toISOString() : null,
-        intake_group_id: intakeGroupId,
+        intake_group_id: body.intake_group_id || null,
         batch_label: String(body.batch_label || '').trim() || null,
         cannot_mix: Boolean(body.cannot_mix),
         is_demo: false,
         ...snapshot,
       }
-      const { data, error } = await admin.from('shipments').insert(row).select('*, intake_groups(id,label,received_date)').single()
+      // One database statement creates both rows or rolls both back on failure.
+      const { data, error } = await admin.rpc('create_shipment_atomic', {
+        p_shipment: row,
+        p_group_label: String(body.intake_group_label || '').trim() || null,
+        p_received_date: body.received_date || new Date().toISOString().slice(0, 10),
+      })
       if (error) throw error
       return json({ shipment: data }, 201)
     }
