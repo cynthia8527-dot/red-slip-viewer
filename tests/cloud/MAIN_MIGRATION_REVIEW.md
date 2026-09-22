@@ -1,6 +1,6 @@
 # 主環境資料限制更新：部署前審核清單
 
-此檔只記錄審核條件，**不是可執行 migration**。主 Supabase 專案 `icqdmzndjmxffnlciijs` 目前未套用本階段的三項限制，也沒有貨件新增／換群組交易函式；不得對主專案執行 `tests/cloud/Txxx.sql`、`enforce_confirmed_data_contracts.sql`、`create_shipment_atomic.sql` 或 `update_shipment_atomic.sql` 這些測試專案專用 SQL。
+此檔只記錄審核條件，**不是可執行 migration**。主 Supabase 專案 `icqdmzndjmxffnlciijs` 目前未套用本階段的三項限制，也沒有貨件新增／換群組與快速新增商品交易函式；不得對主專案執行 `tests/cloud/Txxx.sql`、`enforce_confirmed_data_contracts.sql`、`create_shipment_atomic.sql`、`update_shipment_atomic.sql` 或 `create_product_with_initial_price.sql` 這些測試專案專用 SQL。
 
 ## 已確認的規則
 
@@ -14,6 +14,7 @@
 - 釐清主專案歷史 migration 缺漏的 `dispatch_locations` 建表紀錄，建立可從零重建的版本化 baseline。此倉庫現在只有主專案歷史 SQL 快照，不能直接拿 `supabase db reset` 當正式相容性驗證。
 - 使用 Supabase CLI 的 `migration new` 建立正式 migration 檔，檢查差異與套用順序；不要手寫猜測時間戳，也不要把帶測試專案標記／測試圖片桶的 SQL 原樣套到主環境。本工作機目前沒有 Supabase CLI 或 `psql`，所以尚未建立或套用正式 migration。
 - 若之後決定把貨件新增／換群組原子性修正部署到主環境，須先產生正式且不含測試專案防呆的兩個函式 migration，核對 `security invoker` 與僅 `service_role` 可執行，再部署依賴它們的 Edge Function；不可先部署新 Edge Function，否則新增／換群組會因找不到 RPC 而失敗。
+- 快速新增商品另需正式函式 migration，保留 `security invoker`、管理員檢查及既有商品／價格 RLS；先部署函式、再發佈依賴它的 `board/` 網頁，否則按「新增商品」會失敗。測試專案的 SQL 含專案標記，不能原樣複製到主環境。
 - 先在獨立測試專案用合成舊資料重跑 migration 相容性，確認只新增限制、沒有變更既有欄位或刪除資料；失敗時保留錯誤與差異，不改低測試預期。
 - 正式變更須有部署窗口與可回復的事前備份；套用後對主環境只做唯讀結構與衝突數量核對，**不執行 Txxx 測試、不建立合成資料**。
 

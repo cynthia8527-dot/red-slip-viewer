@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const cloudCases = ['T008', 'T009', 'T010', 'T011', 'T012', 'T018', 'T021', 'T026'];
+const cloudCases = ['T008', 'T009', 'T010', 'T011', 'T012', 'T018', 'T021', 'T026', 'T027'];
 const testProject = 'zfcsuxihpakrsohvcwlr';
 const mainProject = 'icqdmzndjmxffnlciijs';
 
@@ -32,6 +32,13 @@ test('T024 every cloud SQL case checks the dedicated test-project marker', () =>
   assert.match(atomicUpdate, /security invoker/i);
   assert.match(atomicUpdate, /revoke all on function public\.update_shipment_with_group\(uuid, jsonb, uuid, text, date\) from public, anon, authenticated/i);
   assert.match(atomicUpdate, /grant execute on function public\.update_shipment_with_group\(uuid, jsonb, uuid, text, date\) to service_role/i);
+  const quickProduct = readFileSync(new URL('./cloud/create_product_with_initial_price.sql', import.meta.url), 'utf8');
+  assert.match(quickProduct, /test_guard\.project_identity/);
+  assert.match(quickProduct, new RegExp(testProject));
+  assert.doesNotMatch(quickProduct, new RegExp(mainProject));
+  assert.match(quickProduct, /security invoker/i);
+  assert.match(quickProduct, /if not private\.is_factory_admin\(\)/i);
+  assert.match(quickProduct, /revoke all on function public\.create_product_with_initial_price\([^)]+\) from public, anon/i);
   for (const id of cloudCases) {
     const sql = readFileSync(new URL(`./cloud/${id}.sql`, import.meta.url), 'utf8');
     assert.match(sql, /test_guard\.project_identity/, `${id} missing database guard`);

@@ -57,6 +57,11 @@ function shipmentPath(vendor) {
   return `/rest/v1/shipments?${params}`;
 }
 
+function productPath(name) {
+  const params = new URLSearchParams({ select: 'id,name', name: `eq.${name}` });
+  return `/rest/v1/products?${params}`;
+}
+
 async function run() {
   requireTestEnvironment();
   const suffix = randomUUID().replaceAll('-', '');
@@ -67,6 +72,9 @@ async function run() {
   const patchLabel = `CODEX_PATCH_${suffix}`;
   const rollbackLabel = `CODEX_ROLLBACK_${suffix}`;
   const rollbackVendor = `CODEX_ROLLBACK_${suffix}`;
+  const failedProductName = `CODEX_PRICE_FAIL_${suffix}`;
+  const validProductName = `CODEX_PRICE_VALID_${suffix}`;
+  const productNames = [failedProductName, validProductName];
   const fixtures = [{ label, vendor }, { label: validLabel, vendor: validVendor }, { label: patchLabel, vendor: validVendor }, { label: rollbackLabel, vendor: rollbackVendor }];
   let token;
   let failure;
@@ -157,6 +165,37 @@ async function run() {
       throw new Error(`valid grouped PATCH expected HTTP 200 and new linked group; got HTTP ${validPatch.status} / ${JSON.stringify(validPatch.data)}`);
     }
     passed++;
+    const priceArgs = {
+      p_material: null, p_standard_process: 'test process', p_process_notes: null,
+      p_vendor_name: validVendor, p_unit_price: 50, p_minimum_charge: 70,
+      p_unit: 'kg', p_effective_date: new Date().toISOString().slice(0, 10),
+    };
+    const invalidPrice = await request('/rest/v1/rpc/create_product_with_initial_price', {
+      method: 'POST', token,
+      body: { ...priceArgs, p_name: failedProductName, p_vendor_id: 'c0d00000-0000-4000-8000-000000000999' },
+    });
+    if (invalidPrice.status !== 409 || invalidPrice.data?.code !== '23503') {
+      throw new Error(`invalid vendor FK expected HTTP 409 / 23503; got HTTP ${invalidPrice.status} / ${JSON.stringify(invalidPrice.data)}`);
+    }
+    const orphan = await request(productPath(failedProductName), { token });
+    if (orphan.status !== 200 || orphan.data?.length !== 0) {
+      throw new Error(`failed price insert must leave 0 products; found ${orphan.data?.length ?? 'unknown'}`);
+    }
+    passed++;
+    const validProduct = await request('/rest/v1/rpc/create_product_with_initial_price', {
+      method: 'POST', token,
+      body: { ...priceArgs, p_name: validProductName, p_vendor_id: null },
+    });
+    if (validProduct.status !== 200 || validProduct.data?.name !== validProductName || !validProduct.data.id) {
+      throw new Error(`valid quick product expected HTTP 200 and product ID; got HTTP ${validProduct.status} / ${JSON.stringify(validProduct.data)}`);
+    }
+    const linkedPrice = await request(`/rest/v1/vendor_prices?select=product_id,vendor_name,unit_price,minimum_charge&product_id=eq.${validProduct.data.id}`, { token });
+    if (linkedPrice.status !== 200 || linkedPrice.data?.length !== 1 ||
+        linkedPrice.data[0].vendor_name !== validVendor || Number(linkedPrice.data[0].unit_price) !== 50 ||
+        Number(linkedPrice.data[0].minimum_charge) !== 70) {
+      throw new Error(`quick product must have exactly one linked initial price; got ${JSON.stringify(linkedPrice.data)}`);
+    }
+    passed++;
   } catch (error) {
     failure = error;
   } finally {
@@ -190,6 +229,28 @@ async function run() {
         cleanupFailure = error;
       }
       try {
+        for (const name of productNames) {
+          const products = await request(productPath(name), { token });
+          if (products.status !== 200 || !Array.isArray(products.data)) {
+            throw new Error(`cannot inspect cleanup products: HTTP ${products.status}`);
+          }
+          for (const product of products.data) {
+            const deleted = await request(`/rest/v1/products?id=eq.${product.id}`, { method: 'DELETE', token });
+            if (deleted.status !== 204) throw new Error(`could not remove test product ${product.id}: HTTP ${deleted.status}`);
+            const prices = await request(`/rest/v1/vendor_prices?select=id&product_id=eq.${product.id}`, { token });
+            if (prices.status !== 200 || prices.data?.length !== 0) {
+              throw new Error(`test product ${product.id} left a price after cleanup`);
+            }
+          }
+          const cleared = await request(productPath(name), { token });
+          if (cleared.status !== 200 || cleared.data?.length !== 0) {
+            throw new Error(`temporary product ${name} cleanup could not be verified`);
+          }
+        }
+      } catch (error) {
+        cleanupFailure = cleanupFailure ?? error;
+      }
+      try {
         const logout = await request('/auth/v1/logout?scope=global', { method: 'POST', token });
         if (logout.status !== 204) throw new Error(`temporary login could not be revoked: HTTP ${logout.status}`);
       } catch (error) {
@@ -203,7 +264,7 @@ async function run() {
     console.error(`CLOUD TEST FAIL: passed=${passed}, failed=${Number(Boolean(failure)) + Number(Boolean(cleanupFailure))}, skipped=0`);
     process.exitCode = 1;
   } else {
-    console.log('T012 PASS: grouped POST/PATCH succeeded; failed writes left no partial groups or shipments; test session revoked');
+    console.log('T012 PASS: grouped shipments and quick products committed or rolled back together; test session revoked');
     console.log(`CLOUD TEST PASS: passed=${passed}, failed=0, skipped=0`);
   }
 }
