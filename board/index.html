@@ -45,17 +45,24 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.116.0';
 import {resolveConfig} from '../config.js';
 import {priceIsEffective as sharedPriceIsEffective} from '../data/pricing.js';
+import {rememberShipmentPhoto,forgetShipmentPhoto,recoverShipmentPhotos} from '../data/shipment-photo-pending.js';
 const APP_CONFIG=await resolveConfig();
 const SUPABASE_URL=APP_CONFIG.supabaseUrl,SUPABASE_KEY=APP_CONFIG.supabaseKey,LOGIN_REDIRECT=new URL('./',location.href).href;
 const supabaseClient=createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 const SHIP_API=new URL('/functions/v1/shipments',SUPABASE_URL).href;
 const locations=['蘆洲','五股','八里'],statuses=['未開始','處理中','完成待出貨','已出貨'];const $=id=>document.getElementById(id);
+const PENDING_SHIPMENT_CREATE='factory-board:pending-shipment-create',PENDING_QUICK_PRODUCT_CREATE='factory-board:pending-quick-product-create';let pendingShipmentCreate=null,pendingQuickProductCreate=null;
 let tasks=[],products=[],prices=[],vendorMasters=[],view='active',filter='all',editingId=null,loadingNow=false,authorized=false,currentRole='staff',shipPeriodInitialized=false;const photoUrls=new Map();
 async function authFetch(url,options={}){const {data:{session}}=await supabaseClient.auth.getSession();if(!session)throw new Error('登入已失效，請重新登入');return fetch(url,{...options,headers:{...(options.headers||{}),Authorization:`Bearer ${session.access_token}`}})}
+function shipmentCreateRequest(body){const serialized=JSON.stringify(body);if(!pendingShipmentCreate){try{pendingShipmentCreate=JSON.parse(sessionStorage.getItem(PENDING_SHIPMENT_CREATE)||'null')}catch{pendingShipmentCreate=null}}if(!pendingShipmentCreate||pendingShipmentCreate.body!==serialized){pendingShipmentCreate={key:crypto.randomUUID(),body:serialized};try{sessionStorage.setItem(PENDING_SHIPMENT_CREATE,JSON.stringify(pendingShipmentCreate))}catch{}}return pendingShipmentCreate}
+function clearShipmentCreateRequest(key){if(pendingShipmentCreate?.key!==key)return;pendingShipmentCreate=null;try{sessionStorage.removeItem(PENDING_SHIPMENT_CREATE)}catch{}}
+function quickProductCreateRequest(body){const serialized=JSON.stringify(body);if(!pendingQuickProductCreate){try{pendingQuickProductCreate=JSON.parse(sessionStorage.getItem(PENDING_QUICK_PRODUCT_CREATE)||'null')}catch{pendingQuickProductCreate=null}}if(!pendingQuickProductCreate||pendingQuickProductCreate.body!==serialized){pendingQuickProductCreate={key:crypto.randomUUID(),body:serialized};try{sessionStorage.setItem(PENDING_QUICK_PRODUCT_CREATE,JSON.stringify(pendingQuickProductCreate))}catch{}}return pendingQuickProductCreate}
+function clearQuickProductCreateRequest(key){if(pendingQuickProductCreate?.key!==key)return;pendingQuickProductCreate=null;try{sessionStorage.removeItem(PENDING_QUICK_PRODUCT_CREATE)}catch{}}
+function resetShipmentCreateForm(){['fItem','fMaterial','fProcess','fBoxes','fWeight','fDue','fNote','fBatch'].forEach(x=>$(x).value='');$('fPhotos').value='';$('fProduct').value='';$('fStatus').value='未開始';$('fUrgent').checked=false;$('fCannotMix').checked=false;refreshProductSelect('f')}
 function authMessage(text,type=''){const el=$('authMsg');el.textContent=text;el.className='authMsg'+(type?' '+type:'')}
 function showLogin(message='尚未登入。',type=''){authorized=false;$('appMain').hidden=true;$('authGate').hidden=false;authMessage(message,type)}
 async function showApp(session){const {data:profile,error}=await supabaseClient.from('profiles').select('display_name,email,role,active').eq('user_id',session.user.id).maybeSingle();if(error||!profile||!profile.active){await supabaseClient.auth.signOut();showLogin('這個 Email 尚未被授權使用工廠系統。','err');return false}currentRole=profile.role||'staff';document.body.classList.toggle('isAdmin',currentRole==='admin');authorized=true;$('authGate').hidden=true;$('appMain').hidden=false;const role=currentRole==='admin'?'管理員':'員工';$('userInfo').textContent=`${profile.display_name||profile.email||session.user.email}｜${role}`;return true}
-async function initAuth(){authMessage('正在確認登入狀態…');const {data:{session},error}=await supabaseClient.auth.getSession();if(error){showLogin('登入狀態讀取失敗，請重新登入。','err');return}if(!session){showLogin();return}if(await showApp(session))await loadAll()}
+async function initAuth(){authMessage('正在確認登入狀態…');const {data:{session},error}=await supabaseClient.auth.getSession();if(error){showLogin('登入狀態讀取失敗，請重新登入。','err');return}if(!session){showLogin();return}if(await showApp(session)){await loadAll();await recoverShipmentPhotosOnOpen(session)}}
 $('loginForm').addEventListener('submit',async e=>{e.preventDefault();const email=$('loginEmail').value.trim();if(!email)return;const btn=$('loginBtn');btn.disabled=true;authMessage('正在寄送登入連結…');try{const {error}=await supabaseClient.auth.signInWithOtp({email,options:{emailRedirectTo:LOGIN_REDIRECT}});if(error)throw error;authMessage('登入連結已寄出，請到信箱點開。','ok')}catch(err){authMessage('寄送失敗：'+(err?.message||String(err)),'err')}finally{btn.disabled=false}});
 $('logoutBtn').onclick=async()=>{await supabaseClient.auth.signOut();showLogin('已登出。','ok')};
 function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function today(){const p=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());return p.find(x=>x.type==='year').value+'-'+p.find(x=>x.type==='month').value+'-'+p.find(x=>x.type==='day').value}function priceIsEffective(x,date=today()){return sharedPriceIsEffective(x,date)}function hasWeight(t){return t.weight_kg!==null&&t.weight_kg!==''}function pById(id){return products.find(p=>p.id===id)}
@@ -71,16 +78,36 @@ async function compressShipmentPhoto(file){
   const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(bitmap,0,0,w,h);bitmap.close?.();
   return await new Promise((resolve,reject)=>c.toBlob(b=>b?resolve(b):reject(new Error('照片壓縮失敗')),'image/jpeg',.86));
 }
+async function attachShipmentPhoto(shipmentId,path){
+  const body=JSON.stringify({action:'attach_photo',id:shipmentId,storage_path:path});
+  for(let attempt=0;attempt<2;attempt++){
+    let linked;
+    try{linked=await authFetch(SHIP_API,{method:'POST',headers:{'Content-Type':'application/json'},body,signal:AbortSignal.timeout(15000)})}
+    catch(error){if(attempt===0)continue;throw error}
+    if(!linked.ok){const message=await linked.text();let parsed;try{parsed=JSON.parse(message)}catch{}throw Object.assign(new Error(parsed?.error||message),{status:linked.status})}
+    return await linked.json();
+  }
+}
+async function recoverShipmentPhotosOnOpen(session){
+  try{
+    const result=await recoverShipmentPhotos(sessionStorage,session.user.id,job=>attachShipmentPhoto(job.shipmentId,job.path));
+    if(result.completed){photoUrls.clear();if(editingId)await renderEditGallery()}
+    if(result.completed||result.pending||result.missing)$('syncText').textContent=`☁ ${result.completed} 張照片已補關聯`+(result.pending?`；${result.pending} 張仍待處理，下次開頁再試`:'')+(result.missing?`；${result.missing} 張未上傳成功，請重新選照片`:'');
+  }catch(error){console.error('貨件照片待處理恢復失敗',error)}
+}
 async function uploadShipmentPhotos(shipmentId,fileList,stateEl){
   const files=[...(fileList||[])];if(!files.length)return 0;
   if(stateEl)stateEl.textContent='正在上傳照片…';
+  const {data:{session}}=await supabaseClient.auth.getSession();if(!session)throw new Error('登入已失效，請重新登入');
   let done=0;
   for(const file of files){
     const blob=await compressShipmentPhoto(file);
     const safe=(file.name||'photo').replace(/[^a-zA-Z0-9._-]+/g,'_').replace(/\.[^.]+$/,'')||'photo';
-    const path=`shipments/${shipmentId}/${Date.now()}_${done}_${safe}.jpg`;
+    const path=`shipments/${shipmentId}/${crypto.randomUUID()}_${safe}.jpg`;
+    rememberShipmentPhoto(sessionStorage,{userId:session.user.id,shipmentId,path});
     const {error:ue}=await supabaseClient.storage.from(APP_CONFIG.storageBucket).upload(path,blob,{contentType:'image/jpeg',upsert:false});if(ue)throw ue;
-    const {error:re}=await supabaseClient.from('shipment_photos').insert({shipment_id:shipmentId,storage_path:path});if(re)throw re;
+    await attachShipmentPhoto(shipmentId,path);
+    forgetShipmentPhoto(sessionStorage,path);
     done++;
   }
   if(stateEl)stateEl.textContent=`✓ 已上傳 ${done} 張`;
@@ -115,7 +142,7 @@ function render(){const activeTasks=tasks.filter(t=>!t.voided_at),open=activeTas
 async function patch(id,body){const r=await authFetch(SHIP_API,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,...body})});if(!r.ok)throw new Error(await r.text());const d=await r.json();const i=tasks.findIndex(t=>t.id===id);if(i>=0)tasks[i]=mapTask(d.shipment);$('syncText').textContent='☁ 剛剛已同步';render();return tasks[i]}
 async function voidShipment(id){const reason=prompt('作廢原因（可留空）')??null;if(reason===null)return;try{await patch(id,{action:'void',void_reason:reason});$('syncText').textContent='☁ 已作廢'}catch(e){alert('作廢失敗：'+e.message)}}
 async function restoreShipment(id){if(!confirm('要把這筆貨件還原嗎？'))return;try{await patch(id,{action:'restore'});$('syncText').textContent='☁ 已還原'}catch(e){alert('還原失敗：'+e.message)}}
-async function deleteShipment(id){if(currentRole!=='admin')return;if(!confirm('永久刪除後無法還原，確定要刪除這筆貨件與它的貨件照片嗎？'))return;const typed=prompt('請輸入「刪除」確認');if(typed!=='刪除')return;try{const r=await authFetch(SHIP_API,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});if(!r.ok)throw new Error(await r.text());tasks=tasks.filter(t=>t.id!==id);$('syncText').textContent='☁ 已永久刪除';render()}catch(e){alert('刪除失敗：'+e.message)}}
+async function deleteShipment(id){if(currentRole!=='admin')return;if(!confirm('永久刪除後無法還原，確定要刪除這筆貨件與它的貨件照片嗎？'))return;const typed=prompt('請輸入「刪除」確認');if(typed!=='刪除')return;try{const r=await authFetch(SHIP_API,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});if(!r.ok)throw new Error(await r.text());const result=await r.json();tasks=tasks.filter(t=>t.id!==id);$('syncText').textContent=result.cleanup_pending?'☁ 貨件已刪除；圖片清理待重試':'☁ 已永久刪除';render()}catch(e){alert('刪除失敗：'+e.message)}}
 function bind(){document.querySelectorAll('[data-field]').forEach(el=>el.onchange=()=>patch(el.dataset.id,{[el.dataset.field]:el.value}).catch(e=>alert('更新失敗：'+e.message)));document.querySelectorAll('[data-fire]').forEach(el=>el.onclick=()=>{const t=tasks.find(x=>x.id===el.dataset.fire);patch(t.id,{urgent:!t.urgent}).catch(e=>alert('更新失敗：'+e.message))});document.querySelectorAll('[data-edit]').forEach(el=>el.onclick=()=>openEdit(el.dataset.edit));document.querySelectorAll('[data-void]').forEach(el=>el.onclick=()=>voidShipment(el.dataset.void));document.querySelectorAll('[data-restore]').forEach(el=>el.onclick=()=>restoreShipment(el.dataset.restore));document.querySelectorAll('[data-delete]').forEach(el=>el.onclick=()=>deleteShipment(el.dataset.delete))}
 function openEdit(id){const t=tasks.find(x=>x.id===id);if(!t)return;editingId=id;$('mTitle').textContent=t.vendor;$('mSub').textContent=t.item;$('eVendor').value=t.vendor||'';$('eProduct').innerHTML=productOptionsForVendor(t.vendor,t.productId);$('eProduct').disabled=!t.vendor;$('eProduct').value=t.productId||'';$('eItem').value=t.item||'';$('eMaterial').value=t.material||'';$('eProcess').value=t.process||'';$('eBoxes').value=t.boxes||'';$('eWeight').value=t.weight??'';$('eBatch').value=t.batchLabel||'';$('eCannotMix').checked=!!t.cannotMix;$('eLocation').value=t.location||'蘆洲';$('eStatus').value=t.status||'未開始';$('eDue').value=t.due||'';$('eNote').value=t.note||'';$('eUrgent').checked=!!t.urgent;$('eProductHint').textContent=t.productId?'📚 已連結商品資料庫':'未連結商品資料庫';showPreview('e');$('ePhotos').value='';$('ePhotoState').textContent='';$('modalBack').classList.add('open');renderEditGallery()}
 function closeEdit(){$('modalBack').classList.remove('open');editingId=null}
@@ -123,9 +150,37 @@ $('uploadEditPhotos').onclick=async()=>{if(!editingId)return;const files=$('ePho
 $('saveEdit').onclick=async()=>{if(!editingId)return;const body={vendor_name:$('eVendor').value.trim(),vendor_id:vendorIdForName($('eVendor').value.trim()),item_name:$('eItem').value.trim(),product_id:$('eProduct').value||null,material:$('eMaterial').value.trim()||null,process:$('eProcess').value.trim()||null,boxes:$('eBoxes').value.trim()||null,weight_kg:$('eWeight').value,weigh_at:null,location:$('eLocation').value,status:$('eStatus').value,due_date:$('eDue').value||null,urgent:$('eUrgent').checked,note:$('eNote').value.trim()||null,batch_label:$('eBatch').value.trim(),cannot_mix:$('eCannotMix').checked};if(!body.vendor_name||!body.item_name)return alert('至少要有廠商和貨品');$('modal').classList.add('saving');try{await patch(editingId,body);closeEdit()}catch(e){alert('儲存失敗：'+e.message)}finally{$('modal').classList.remove('saving')}};
 function openQuickProduct(){const vendor=$('fVendor').value.trim();if(currentRole!=='admin'||!vendor)return;$('qVendor').textContent=vendor;['qName','qMaterial','qProcess','qNotes','qPrice','qMinimum'].forEach(id=>$(id).value='');$('qUnit').value='kg';$('quickBack').classList.add('open')}
 function closeQuickProduct(){$('quickBack').classList.remove('open')}
-$('qSave').onclick=async()=>{const vendor=$('fVendor').value.trim(),name=$('qName').value.trim(),price=$('qPrice').value;if(currentRole!=='admin'||!vendor)return;if(!name||price==='')return alert('商品名稱和單價要填');$('quickModal').classList.add('saving');let product=null;try{const {data,error}=await supabaseClient.from('products').insert({name,material:$('qMaterial').value.trim()||null,standard_process:$('qProcess').value.trim()||null,process_notes:$('qNotes').value.trim()||null}).select().single();if(error)throw error;product=data;const {error:ve}=await supabaseClient.from('vendor_prices').insert({vendor_name:vendor,vendor_id:vendorIdForName(vendor),product_id:product.id,unit_price:Number(price),minimum_charge:$('qMinimum').value===''?null:Number($('qMinimum').value),unit:$('qUnit').value.trim()||'kg',process_name:$('qProcess').value.trim()||null,effective_date:today()});if(ve)throw ve;closeQuickProduct();await loadCatalog();$('vendorList').innerHTML=vendorNames().map(v=>`<option value="${esc(v)}"></option>`).join('');refreshProductSelect('f',false);$('fProduct').value=product.id;applyProduct('f');$('syncText').textContent='☁ 新商品已建立'}catch(e){if(product){try{await supabaseClient.from('products').delete().eq('id',product.id)}catch{}}alert('建立商品失敗：'+e.message)}finally{$('quickModal').classList.remove('saving')}};
+$('qSave').onclick=async()=>{
+  const vendor=$('fVendor').value.trim(),name=$('qName').value.trim(),price=$('qPrice').value;
+  if(currentRole!=='admin'||!vendor)return;
+  if(!name||price==='')return alert('商品名稱和單價要填');
+  $('quickModal').classList.add('saving');
+  let product=null;
+  try{
+    const body={
+      p_name:name,p_material:$('qMaterial').value.trim()||null,
+      p_standard_process:$('qProcess').value.trim()||null,p_process_notes:$('qNotes').value.trim()||null,
+      p_vendor_name:vendor,p_vendor_id:vendorIdForName(vendor),p_unit_price:Number(price),
+      p_minimum_charge:$('qMinimum').value===''?null:Number($('qMinimum').value),
+      p_unit:$('qUnit').value.trim()||'kg',p_vendor_process:$('qProcess').value.trim()||null,
+      p_price_note:null,p_effective_date:today()
+    },request=quickProductCreateRequest(body);
+    const {data,error}=await supabaseClient.rpc('create_product_with_initial_price_idempotent',{p_request_id:request.key,...body});
+    if(error)throw error;
+    product=data.product;
+    clearQuickProductCreateRequest(request.key);
+    closeQuickProduct();
+    await loadCatalog();
+    $('vendorList').innerHTML=vendorNames().map(v=>`<option value="${esc(v)}"></option>`).join('');
+    refreshProductSelect('f',false);
+    $('fProduct').value=product.id;
+    applyProduct('f');
+    $('syncText').textContent='☁ 新商品已建立';
+  }catch(e){alert((product?'商品已建立，但畫面重新載入失敗，請重新整理：':'建立商品失敗：')+e.message)}
+  finally{$('quickModal').classList.remove('saving')}
+};
 $('fVendor').oninput=()=>refreshProductSelect('f',false);$('eVendor').oninput=()=>refreshProductSelect('e',false);$('fProduct').onchange=()=>applyProduct('f');$('eProduct').onchange=()=>applyProduct('e');$('quickProduct').onclick=openQuickProduct;$('qClose').onclick=closeQuickProduct;$('qCancel').onclick=closeQuickProduct;$('quickBack').onclick=e=>{if(e.target===$('quickBack'))closeQuickProduct()};
 $('toggleForm').onclick=()=>$('form').classList.toggle('open');$('cancel').onclick=()=>$('form').classList.remove('open');$('reload').onclick=()=>loadAll().catch(e=>alert(e.message));$('search').oninput=render;$('shipYear').onchange=()=>{if(!$('shipYear').value)$('shipMonth').value='';updateShipPeriodButtons();render()};$('shipMonth').onchange=()=>{if($('shipMonth').value&&!$('shipYear').value)$('shipYear').value=taipeiYearMonth().year;updateShipPeriodButtons();render()};$('currentShipMonth').onclick=setCurrentShipMonth;$('allShipDates').onclick=()=>{$('shipYear').value='';$('shipMonth').value='';updateShipPeriodButtons();render()};$('mClose').onclick=closeEdit;$('mCancel').onclick=closeEdit;$('modalBack').onclick=e=>{if(e.target===$('modalBack'))closeEdit()};document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{view=b.dataset.tab;document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));updateViewControls();render()});document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{filter=b.dataset.filter;document.querySelectorAll('[data-filter]').forEach(x=>x.classList.toggle('active',x===b));render()});
-$('addTask').onclick=async()=>{const body={vendor_name:$('fVendor').value.trim(),vendor_id:vendorIdForName($('fVendor').value.trim()),item_name:$('fItem').value.trim(),product_id:$('fProduct').value||null,material:$('fMaterial').value.trim()||null,process:$('fProcess').value.trim()||null,boxes:$('fBoxes').value.trim()||null,weight_kg:$('fWeight').value,weigh_at:null,location:$('fLocation').value,status:$('fStatus').value,due_date:$('fDue').value||null,urgent:$('fUrgent').checked,note:$('fNote').value.trim()||null,batch_label:$('fBatch').value.trim(),cannot_mix:$('fCannotMix').checked};if(!body.vendor_name||!body.item_name)return alert('至少填廠商和貨品');const files=[...$('fPhotos').files];$('addTask').disabled=true;$('fPhotoState').textContent='';try{const r=await authFetch(SHIP_API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text());const d=await r.json();tasks.unshift(mapTask(d.shipment));if(files.length)await uploadShipmentPhotos(d.shipment.id,files,$('fPhotoState'));['fItem','fMaterial','fProcess','fBoxes','fWeight','fDue','fNote','fBatch'].forEach(x=>$(x).value='');$('fPhotos').value='';$('fProduct').value='';$('fStatus').value='未開始';$('fUrgent').checked=false;$('fCannotMix').checked=false;refreshProductSelect('f');$('syncText').textContent=files.length?'☁ 貨件與照片已同步':'☁ 剛剛已同步';render()}catch(e){alert('新增失敗：'+e.message)}finally{$('addTask').disabled=false}};
+$('addTask').onclick=async()=>{const body={vendor_name:$('fVendor').value.trim(),vendor_id:vendorIdForName($('fVendor').value.trim()),item_name:$('fItem').value.trim(),product_id:$('fProduct').value||null,material:$('fMaterial').value.trim()||null,process:$('fProcess').value.trim()||null,boxes:$('fBoxes').value.trim()||null,weight_kg:$('fWeight').value,weigh_at:null,location:$('fLocation').value,status:$('fStatus').value,due_date:$('fDue').value||null,urgent:$('fUrgent').checked,note:$('fNote').value.trim()||null,batch_label:$('fBatch').value.trim(),cannot_mix:$('fCannotMix').checked};if(!body.vendor_name||!body.item_name)return alert('至少填廠商和貨品');const files=[...$('fPhotos').files],request=shipmentCreateRequest(body);$('addTask').disabled=true;$('fPhotoState').textContent='';try{const r=await authFetch(SHIP_API,{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':request.key},body:request.body});if(!r.ok)throw new Error(await r.text());const d=await r.json();clearShipmentCreateRequest(request.key);if(!tasks.some(x=>x.id===d.shipment.id))tasks.unshift(mapTask(d.shipment));let photoError=null;if(files.length){try{await uploadShipmentPhotos(d.shipment.id,files,$('fPhotoState'))}catch(e){photoError=e}}resetShipmentCreateForm();render();if(photoError){$('syncText').textContent='⚠ 貨件已建立，照片未完整';alert('貨件已建立，不要再按新增；但照片沒有完整上傳，請到這筆貨件的「查看／編輯」補傳：'+photoError.message)}else{$('syncText').textContent=files.length?'☁ 貨件與照片已同步':'☁ 剛剛已同步'}}catch(e){alert('新增失敗：'+e.message)}finally{$('addTask').disabled=false}};
 setInterval(()=>{if(authorized&&!editingId&&!$('form').classList.contains('open')&&!$('quickBack').classList.contains('open')&&!document.hidden)loadAll(true)},5000);document.addEventListener('visibilitychange',()=>{if(authorized&&!document.hidden&&!editingId)loadAll(true)});window.addEventListener('focus',()=>{if(authorized&&!editingId)loadAll(true)});updateViewControls();initAuth();
 </script></body></html>
