@@ -15,6 +15,7 @@
 - `create_shipment_idempotent.sql` 已只在**測試專案**安裝：新增可空的 request ID／fingerprint 欄位與另一個 RPC，不覆蓋舊三參數函式。相同 request ID 會先取得交易級鎖；同內容回傳第一次結果，不同內容拒絕。測試專案 `shipments` Edge Function 已更新為 v9、仍要求 JWT；主環境未安裝或部署。
 - `delete_shipment_with_cleanup_job.sql` 已只在**測試專案**安裝：以單一交易把圖片路徑存入私有清理工作並刪除貨件／照片，Storage 清理結果另行記錄；同一貨件 ID 可重送。函式為 `security invoker`，表與 RPC 只授權 `service_role`。測試專案 Edge v9 已部署此流程，但因本環境無安全登入憑證尚未做登入整合；主環境未安裝或部署。
 - 主專案備份相關的 3 筆 migration 沒有部署到測試專案，以免建立排程或複製備份；早期公開讀取測試目錄的 migration 也未重播，因該政策不在主專案現況。
+- `node tests/reference/migration-inventory.mjs` 是純離線的歷史檔案盤點。17 筆快照仍缺叫車地點建表與貨件作廢人索引，因此目前輸出退出碼 2；兩項 T019 離線測試通過並不代表正式 migration 已可從零重播。該腳本不連線任何 Supabase 專案。
 - 套用上述三項新限制**之前**，已比對 10 個業務表、32 個約束、37 條 RLS 政策及 28 個索引，測試專案與主專案原本現況相符（排除備份表；Storage 政策的 bucket ID 依環境不同）。目前測試專案因這三項限制而有意與主環境不同。
 - 已依使用者同意，在**測試專案**保留一個 `codex-cloud@example.invalid` 專用管理測試帳號。此電腦的 `credentials.local.json` 被 git 忽略，密碼由目前 Windows 使用者的 DPAPI 加密；它不能在另一台電腦或其他 Windows 使用者下直接解密。沒有服務角色金鑰，亦沒有把密碼或本機憑證提交到 GitHub。
 - 固定指令 `npm run test:cloud` 只對寫死的測試專案 URL 登入，執行五種原子貨件情境、兩種 T028 重送防重情境、兩種原子快速新增商品情境及兩種 T031 商品重送防重情境；清除它建立的群組／貨件／商品／價格並全域登出。缺本機測試憑證會**失敗，不會 skipped**。它不包含 Google Drive、完整 UI 或所有資料關聯；不得把它算進離線 `npm run test` 的綠燈，也不得把主專案金鑰放進 GitHub Actions。

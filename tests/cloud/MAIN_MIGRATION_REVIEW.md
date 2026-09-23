@@ -12,6 +12,7 @@
 
 - 再次唯讀檢查主環境是否已有重複組合或錯位路徑；若有，先人工判定每筆如何處理，不能讓 migration 自動刪除或覆蓋資料。2026-09-22 的盤點結果是三項衝突群組／列均為 0，但部署當天必須重查。
 - 釐清主專案歷史 migration 缺漏的 `dispatch_locations` 建表紀錄，建立可從零重建的版本化 baseline。此倉庫現在只有主專案歷史 SQL 快照，不能直接拿 `supabase db reset` 當正式相容性驗證。
+- 可離線執行 `node tests/reference/migration-inventory.mjs` 盤點 17 筆歷史快照；目前會明列 `dispatch_locations` 建表與 `shipments_voided_by_idx` 索引兩項缺漏並以退出碼 2 阻擋「從零可重播」宣稱。同時列出四個不得直接放入業務重播的舊公開讀取／備份相關檔案。這是原始 SQL 文字盤點，沒有執行 migration，也不代替資料庫相容驗證；新補的 T019 離線測試確認盤點能辨識實際 DDL、忽略註解與重複版本。
 - 使用 Supabase CLI 的 `migration new` 建立正式 migration 檔，檢查差異與套用順序；不要手寫猜測時間戳，也不要把帶測試專案標記／測試圖片桶的 SQL 原樣套到主環境。本工作機目前沒有 Supabase CLI 或 `psql`，所以尚未建立或套用正式 migration。
 - 若之後決定把貨件新增／換群組原子性修正部署到主環境，須先產生正式且不含測試專案防呆的兩個函式 migration，核對 `security invoker` 與僅 `service_role` 可執行，再部署依賴它們的 Edge Function；不可先部署新 Edge Function，否則新增／換群組會因找不到 RPC 而失敗。
 - 快速新增商品另需正式函式 migration：先增加可空 request UUID／fingerprint、成對檢查與部分唯一索引，舊商品保持 `NULL`；保留舊 RPC，另建 `security invoker` 防重新函式、管理員檢查及既有商品／價格 RLS。先部署欄位／索引／函式，再發佈依賴新 RPC 的 `board/` 網頁，否則按「新增商品」會失敗。測試專案的 SQL 含專案標記，不能原樣複製到主環境；正式部署前須從舊結構樣本重跑 T031 相容驗證。

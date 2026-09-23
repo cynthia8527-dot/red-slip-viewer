@@ -22,7 +22,7 @@ for (const page of ['board', 'calculator', 'dispatch', 'vendors']) {
 console.log('PRE-FLIGHT PASS: no test target or data page points directly at main Supabase.');
 // The suite has no HTTP client; it uses local, in-memory SQLite and file fixtures only.
 const result = spawnSync(process.execPath, ['--test', '--test-reporter=tap',
-  'tests/config.test.mjs', 'tests/cloud-config.test.mjs', 'tests/edge-function.test.mjs', 'tests/product-photo-edge.test.mjs', 'tests/product-photo-pending.test.mjs', 'tests/shipment-photo-pending.test.mjs', 'tests/pricing.test.mjs', 'tests/data.test.mjs', 'tests/smoke.test.mjs', 'tests/browser.test.mjs'],
+  'tests/config.test.mjs', 'tests/cloud-config.test.mjs', 'tests/migration-inventory.test.mjs', 'tests/edge-function.test.mjs', 'tests/product-photo-edge.test.mjs', 'tests/product-photo-pending.test.mjs', 'tests/shipment-photo-pending.test.mjs', 'tests/pricing.test.mjs', 'tests/data.test.mjs', 'tests/smoke.test.mjs', 'tests/browser.test.mjs'],
   { cwd: root, encoding: 'utf8', env: { ...process.env, TEST_MODE: 'offline' } });
 process.stdout.write(result.stdout || '');
 process.stderr.write(result.stderr || '');
