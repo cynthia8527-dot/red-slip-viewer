@@ -19,6 +19,7 @@ function productPhotoHandler(options = {}) {
   const id = '00000000-0000-4000-8000-000000000032';
   let referencePath = options.referencePath ?? null;
   let removeAttempts = 0;
+  let lookupCount = 0;
   const calls = { updates: [], exists: [], removals: [] };
   const userId = '00000000-0000-4000-8000-000000000001';
   const admin = {
@@ -48,12 +49,17 @@ function productPhotoHandler(options = {}) {
         eq(field, value) { filters[field] = value; return this; },
         is(field, value) { filters[field] = value; return this; },
         async maybeSingle() {
-          if (!patch) return { data: { id, reference_photo_path: referencePath }, error: null };
+          if (!patch) {
+            lookupCount++;
+            if (options.onLookup) referencePath = options.onLookup(lookupCount, referencePath);
+            return { data: { id, reference_photo_path: referencePath }, error: null };
+          }
           calls.updates.push({ patch, filters: { ...filters } });
           if (options.updateError) return { data: null, error: { message: 'forced link failure' } };
           if ((filters.reference_photo_path ?? null) !== (referencePath ?? null)) return { data: null, error: null };
           referencePath = patch.reference_photo_path;
-          return { data: { id, reference_photo_path: referencePath }, error: null };
+          if (options.afterUpdate) referencePath = options.afterUpdate(referencePath);
+          return { data: { id, reference_photo_path: patch.reference_photo_path }, error: null };
         },
       };
     },
@@ -115,6 +121,31 @@ test('T032 replacing a product photo retries cleanup without relinking', async (
   assert.equal((await retry.json()).previous_cleanup_pending, false);
   assert.equal(calls.updates.length, 1);
   assert.deepEqual(calls.removals, [[oldPath], [oldPath]]);
+});
+
+test('T032 avoids deleting a previous photo that became current during replacement', async () => {
+  const id = '00000000-0000-4000-8000-000000000032';
+  const oldPath = `products/${id}/old.jpg`;
+  const newPath = `products/${id}/new.jpg`;
+  const { handler, calls } = productPhotoHandler({ referencePath: oldPath, afterUpdate: () => oldPath });
+  const response = await send(handler, id, newPath, oldPath);
+  assert.equal(response.status, 202);
+  assert.equal((await response.json()).photo_change_pending, true);
+  assert.deepEqual(calls.removals, []);
+});
+
+test('T032 avoids deleting a previous photo that became current during replay cleanup', async () => {
+  const id = '00000000-0000-4000-8000-000000000032';
+  const oldPath = `products/${id}/old.jpg`;
+  const newPath = `products/${id}/new.jpg`;
+  const { handler, calls } = productPhotoHandler({
+    referencePath: newPath,
+    onLookup: (count, current) => count === 2 ? oldPath : current,
+  });
+  const response = await send(handler, id, newPath, oldPath);
+  assert.equal(response.status, 202);
+  assert.equal((await response.json()).photo_change_pending, true);
+  assert.deepEqual(calls.removals, []);
 });
 
 test('T032 non-admin cannot attach a product photo', async () => {

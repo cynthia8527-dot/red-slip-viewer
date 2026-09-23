@@ -129,7 +129,8 @@ async function saveProduct(){
           if(attachError.status===409&&/uploaded photo object not found|product photo changed before/.test(attachError.message))forgetProductPhoto(sessionStorage,path);
           throw uploadError||attachError;
         }
-        if(attached?.previous_cleanup_pending)photoWarning='新照片已儲存，但舊照片清除未完成；下次開啟此頁會再試。';
+        if(attached?.photo_change_pending)photoWarning='商品照片同時被修改，這次換圖尚未確認；下次開啟此頁會再試。';
+        else if(attached?.previous_cleanup_pending)photoWarning='新照片已儲存，但舊照片清除未完成；下次開啟此頁會再試。';
         else forgetProductPhoto(sessionStorage,path);
       }catch(photoError){
         productDialog.close();clearPendingPhoto();photoUrls.clear();await load();

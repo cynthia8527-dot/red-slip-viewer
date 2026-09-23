@@ -46,14 +46,21 @@ Deno.serve(async (req) => {
 
     const getProduct = async () => admin.from('products')
       .select('id,reference_photo_path').eq('id', id).maybeSingle()
+    const cleanupPreviousPhoto = async () => {
+      // A second photo change may have made the old path current again.
+      const current = await getProduct()
+      if (current.error) throw current.error
+      if (current.data?.reference_photo_path === previousPath) return 'referenced'
+      return await removeUploadedObject(previousPath!) ? 'failed' : null
+    }
     const firstLookup = await getProduct()
     if (firstLookup.error) throw firstLookup.error
     if (!firstLookup.data) return json({ error: 'product not found' }, 404)
 
     if (firstLookup.data.reference_photo_path === storagePath) {
       if (previousPath && previousPath !== storagePath) {
-        const cleanupError = await removeUploadedObject(previousPath)
-        if (cleanupError) return json({ product: firstLookup.data, replayed: true, previous_cleanup_pending: true }, 202)
+        const cleanup = await cleanupPreviousPhoto()
+        if (cleanup) return json({ product: firstLookup.data, replayed: true, previous_cleanup_pending: true, photo_change_pending: cleanup === 'referenced' }, 202)
       }
       return json({ product: firstLookup.data, replayed: true, previous_cleanup_pending: false })
     }
@@ -83,8 +90,8 @@ Deno.serve(async (req) => {
     }
 
     if (previousPath && previousPath !== storagePath) {
-      const cleanupError = await removeUploadedObject(previousPath)
-      if (cleanupError) return json({ product: linked.data, replayed: false, previous_cleanup_pending: true }, 202)
+      const cleanup = await cleanupPreviousPhoto()
+      if (cleanup) return json({ product: linked.data, replayed: false, previous_cleanup_pending: true, photo_change_pending: cleanup === 'referenced' }, 202)
     }
     return json({ product: linked.data, replayed: false, previous_cleanup_pending: false }, 201)
   } catch (error) {
