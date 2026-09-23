@@ -1,4 +1,6 @@
 export const PENDING_PRODUCT_PHOTOS = 'factory-calculator:pending-product-photos';
+// A Storage upload can finish after a page reload and an early missing-object check.
+export const PRODUCT_PHOTO_UPLOAD_GRACE_MS = 2 * 60 * 1000;
 
 function read(storage) {
   try {
@@ -17,7 +19,7 @@ export function rememberProductPhoto(storage, job) {
   const jobs = read(storage);
   if (jobs.some(item => item.path === job.path)) return;
   if (jobs.length >= 20) throw new Error('照片待處理清單已滿，請先重新開啟此頁完成照片關聯');
-  storage.setItem(PENDING_PRODUCT_PHOTOS, JSON.stringify([...jobs, job]));
+  storage.setItem(PENDING_PRODUCT_PHOTOS, JSON.stringify([...jobs, { ...job, createdAt: Date.now() }]));
 }
 
 export function forgetProductPhoto(storage, path) {
@@ -26,9 +28,9 @@ export function forgetProductPhoto(storage, path) {
   else storage.removeItem(PENDING_PRODUCT_PHOTOS);
 }
 
-// Only a confirmed missing object or a completed link may be forgotten.
+// A recent missing-object response can race with an upload still finishing.
 // Network and server errors retain the job for the next page load.
-export async function recoverProductPhotos(storage, userId, attach) {
+export async function recoverProductPhotos(storage, userId, attach, now = Date.now()) {
   const result = { completed: 0, missing: 0, pending: 0 };
   for (const job of pendingProductPhotos(storage, userId)) {
     try {
@@ -39,7 +41,9 @@ export async function recoverProductPhotos(storage, userId, attach) {
         result.completed++;
       }
     } catch (error) {
-      if (error?.status === 409 && /uploaded photo object not found/.test(error.message || '')) {
+      const recentUpload = Number.isFinite(job.createdAt) &&
+        now - job.createdAt < PRODUCT_PHOTO_UPLOAD_GRACE_MS;
+      if (error?.status === 409 && /uploaded photo object not found/.test(error.message || '') && !recentUpload) {
         forgetProductPhoto(storage, job.path);
         result.missing++;
       } else result.pending++;
