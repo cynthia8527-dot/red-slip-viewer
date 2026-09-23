@@ -45,6 +45,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.116.0';
 import {resolveConfig} from '../config.js';
 import {priceIsEffective as sharedPriceIsEffective} from '../data/pricing.js';
+import {rememberShipmentPhoto,forgetShipmentPhoto,recoverShipmentPhotos} from '../data/shipment-photo-pending.js';
 const APP_CONFIG=await resolveConfig();
 const SUPABASE_URL=APP_CONFIG.supabaseUrl,SUPABASE_KEY=APP_CONFIG.supabaseKey,LOGIN_REDIRECT=new URL('./',location.href).href;
 const supabaseClient=createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
@@ -61,7 +62,7 @@ function resetShipmentCreateForm(){['fItem','fMaterial','fProcess','fBoxes','fWe
 function authMessage(text,type=''){const el=$('authMsg');el.textContent=text;el.className='authMsg'+(type?' '+type:'')}
 function showLogin(message='尚未登入。',type=''){authorized=false;$('appMain').hidden=true;$('authGate').hidden=false;authMessage(message,type)}
 async function showApp(session){const {data:profile,error}=await supabaseClient.from('profiles').select('display_name,email,role,active').eq('user_id',session.user.id).maybeSingle();if(error||!profile||!profile.active){await supabaseClient.auth.signOut();showLogin('這個 Email 尚未被授權使用工廠系統。','err');return false}currentRole=profile.role||'staff';document.body.classList.toggle('isAdmin',currentRole==='admin');authorized=true;$('authGate').hidden=true;$('appMain').hidden=false;const role=currentRole==='admin'?'管理員':'員工';$('userInfo').textContent=`${profile.display_name||profile.email||session.user.email}｜${role}`;return true}
-async function initAuth(){authMessage('正在確認登入狀態…');const {data:{session},error}=await supabaseClient.auth.getSession();if(error){showLogin('登入狀態讀取失敗，請重新登入。','err');return}if(!session){showLogin();return}if(await showApp(session))await loadAll()}
+async function initAuth(){authMessage('正在確認登入狀態…');const {data:{session},error}=await supabaseClient.auth.getSession();if(error){showLogin('登入狀態讀取失敗，請重新登入。','err');return}if(!session){showLogin();return}if(await showApp(session)){await loadAll();await recoverShipmentPhotosOnOpen(session)}}
 $('loginForm').addEventListener('submit',async e=>{e.preventDefault();const email=$('loginEmail').value.trim();if(!email)return;const btn=$('loginBtn');btn.disabled=true;authMessage('正在寄送登入連結…');try{const {error}=await supabaseClient.auth.signInWithOtp({email,options:{emailRedirectTo:LOGIN_REDIRECT}});if(error)throw error;authMessage('登入連結已寄出，請到信箱點開。','ok')}catch(err){authMessage('寄送失敗：'+(err?.message||String(err)),'err')}finally{btn.disabled=false}});
 $('logoutBtn').onclick=async()=>{await supabaseClient.auth.signOut();showLogin('已登出。','ok')};
 function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function today(){const p=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());return p.find(x=>x.type==='year').value+'-'+p.find(x=>x.type==='month').value+'-'+p.find(x=>x.type==='day').value}function priceIsEffective(x,date=today()){return sharedPriceIsEffective(x,date)}function hasWeight(t){return t.weight_kg!==null&&t.weight_kg!==''}function pById(id){return products.find(p=>p.id===id)}
@@ -83,20 +84,30 @@ async function attachShipmentPhoto(shipmentId,path){
     let linked;
     try{linked=await authFetch(SHIP_API,{method:'POST',headers:{'Content-Type':'application/json'},body,signal:AbortSignal.timeout(15000)})}
     catch(error){if(attempt===0)continue;throw error}
-    if(!linked.ok)throw new Error(await linked.text());
+    if(!linked.ok){const message=await linked.text();let parsed;try{parsed=JSON.parse(message)}catch{}throw Object.assign(new Error(parsed?.error||message),{status:linked.status})}
     return await linked.json();
   }
+}
+async function recoverShipmentPhotosOnOpen(session){
+  try{
+    const result=await recoverShipmentPhotos(sessionStorage,session.user.id,job=>attachShipmentPhoto(job.shipmentId,job.path));
+    if(result.completed){photoUrls.clear();if(editingId)await renderEditGallery()}
+    if(result.completed||result.pending||result.missing)$('syncText').textContent=`☁ ${result.completed} 張照片已補關聯`+(result.pending?`；${result.pending} 張仍待處理，下次開頁再試`:'')+(result.missing?`；${result.missing} 張未上傳成功，請重新選照片`:'');
+  }catch(error){console.error('貨件照片待處理恢復失敗',error)}
 }
 async function uploadShipmentPhotos(shipmentId,fileList,stateEl){
   const files=[...(fileList||[])];if(!files.length)return 0;
   if(stateEl)stateEl.textContent='正在上傳照片…';
+  const {data:{session}}=await supabaseClient.auth.getSession();if(!session)throw new Error('登入已失效，請重新登入');
   let done=0;
   for(const file of files){
     const blob=await compressShipmentPhoto(file);
     const safe=(file.name||'photo').replace(/[^a-zA-Z0-9._-]+/g,'_').replace(/\.[^.]+$/,'')||'photo';
-    const path=`shipments/${shipmentId}/${Date.now()}_${done}_${safe}.jpg`;
+    const path=`shipments/${shipmentId}/${crypto.randomUUID()}_${safe}.jpg`;
+    rememberShipmentPhoto(sessionStorage,{userId:session.user.id,shipmentId,path});
     const {error:ue}=await supabaseClient.storage.from(APP_CONFIG.storageBucket).upload(path,blob,{contentType:'image/jpeg',upsert:false});if(ue)throw ue;
     await attachShipmentPhoto(shipmentId,path);
+    forgetShipmentPhoto(sessionStorage,path);
     done++;
   }
   if(stateEl)stateEl.textContent=`✓ 已上傳 ${done} 張`;
