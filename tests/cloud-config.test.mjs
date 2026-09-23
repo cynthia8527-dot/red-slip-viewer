@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 
 const cloudCases = ['T008', 'T009', 'T010', 'T011', 'T012', 'T018', 'T021', 'T026', 'T027', 'T028', 'T029'];
 const testProject = 'zfcsuxihpakrsohvcwlr';
@@ -64,4 +65,18 @@ test('T024 authenticated cloud runner is test-project-only and ignores local cre
   assert.match(runner, /const baseUrl = `https:\/\/\$\{projectId\}\.supabase\.co`/);
   assert.doesNotMatch(runner, new RegExp(mainProject));
   assert.match(ignore, /^tests\/cloud\/credentials\.local\.json$/m);
+});
+
+test('T024 photo cloud runner refuses a mismatched project before any network call', () => {
+  const source = readFileSync(new URL('./cloud/authenticated-product-photos.mjs', import.meta.url), 'utf8');
+  assert.match(source, new RegExp(`const projectId = '${testProject}'`));
+  assert.match(source, /const baseUrl = `https:\/\/\$\{projectId\}\.supabase\.co`/);
+  assert.match(source, /const bucket = 'factory-photos-test'/);
+  assert.doesNotMatch(source, new RegExp(mainProject));
+  const child = spawnSync(process.execPath, [new URL('./cloud/authenticated-product-photos.mjs', import.meta.url).pathname], {
+    encoding: 'utf8', env: { ...process.env, TEST_CLOUD_PROJECT_ID: 'wrong-project' },
+  });
+  assert.equal(child.status, 1);
+  assert.match(child.stderr, /no request was sent/);
+  assert.match(child.stderr, /passed=0, failed=1, skipped=0/);
 });
