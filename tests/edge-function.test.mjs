@@ -19,9 +19,11 @@ test('T025 shipment function test deployment maps only the photo bucket', () => 
 function shipmentHandlerWithFakeDatabase(options = {}) {
   const source = readFileSync(new URL('../supabase/functions/shipments/index.ts', import.meta.url), 'utf8')
     .replace(/^import[^\n]+\n/gm, '');
-  const calls = { intakeGroups: 0, atomicCreates: [], atomicUpdates: [], photoInserts: [], storageExists: [], storageRemovals: [] };
+  const calls = { operations: [], intakeGroups: 0, atomicCreates: [], atomicUpdates: [], atomicDeletes: [], cleanupResults: [], photoInserts: [], storageExists: [], storageRemovals: [] };
   const createdByRequest = new Map();
   const photosByPath = new Map();
+  const deletionJobs = new Map();
+  let storageRemoveAttempts = 0;
   const userId = '00000000-0000-4000-8000-000000000001';
   const admin = {
     auth: { getUser: async () => ({ data: { user: { id: userId } }, error: null }) },
@@ -36,8 +38,10 @@ function shipmentHandlerWithFakeDatabase(options = {}) {
               : { data: options.storageObjectExists !== false, error: null };
           },
           async remove(paths) {
+            calls.operations.push('storage-remove');
             calls.storageRemovals.push([...paths]);
-            return options.storageRemoveError
+            storageRemoveAttempts++;
+            return options.storageRemoveError || (options.storageRemoveErrorOnce && storageRemoveAttempts === 1)
               ? { data: null, error: { message: 'forced storage cleanup failure' } }
               : { data: paths.map(name => ({ name })), error: null };
           },
@@ -96,6 +100,24 @@ function shipmentHandlerWithFakeDatabase(options = {}) {
         const shipment = { id: `temporary-shipment-${createdByRequest.size + 1}`, ...args.p_shipment, intake_groups: null };
         createdByRequest.set(args.p_request_id, { fingerprint: args.p_request_fingerprint, shipment });
         return { data: { shipment, replayed: false }, error: null };
+      }
+      if (name === 'delete_shipment_with_cleanup_job') {
+        calls.operations.push('database-delete');
+        calls.atomicDeletes.push(args);
+        if (options.shipmentDeleteError) return { data: null, error: { message: 'forced relational delete failure' } };
+        const previous = deletionJobs.get(args.p_id);
+        if (previous) return { data: { ...previous, replayed: true }, error: null };
+        const created = { id: args.p_id, storage_paths: [`shipments/${args.p_id}/one.jpg`], cleanup_completed: false, replayed: false };
+        deletionJobs.set(args.p_id, created);
+        return { data: created, error: null };
+      }
+      if (name === 'record_shipment_cleanup_result') {
+        calls.operations.push('cleanup-result');
+        calls.cleanupResults.push(args);
+        const previous = deletionJobs.get(args.p_id);
+        if (options.cleanupRecordError) return { data: null, error: { message: 'forced cleanup result failure' } };
+        deletionJobs.set(args.p_id, { ...previous, cleanup_completed: args.p_error == null });
+        return { data: { id: args.p_id, cleanup_completed: args.p_error == null }, error: null };
       }
       assert.equal(name, 'update_shipment_with_group');
       calls.atomicUpdates.push(args);
@@ -255,6 +277,55 @@ test('T021 missing Storage object is rejected before photo metadata insert', asy
   assert.match((await response.json()).error, /object not found/);
   assert.deepEqual(calls.storageExists, [path]);
   assert.equal(calls.photoInserts.length, 0);
+});
+
+test('T030 permanent deletion durably removes database rows before Storage cleanup', async () => {
+  const { handler, calls } = shipmentHandlerWithFakeDatabase();
+  const id = '00000000-0000-4000-8000-000000000030';
+  const response = await handler(new Request('https://offline.invalid/shipments', {
+    method: 'DELETE',
+    headers: { Authorization: 'Bearer offline-test' },
+    body: JSON.stringify({ id }),
+  }));
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { deleted: true, id, cleanup_pending: false, replayed: false });
+  assert.deepEqual(calls.operations, ['database-delete', 'storage-remove', 'cleanup-result']);
+  assert.deepEqual(calls.storageRemovals, [[`shipments/${id}/one.jpg`]]);
+  assert.equal(calls.cleanupResults.length, 1);
+  assert.equal(calls.cleanupResults[0].p_id, id);
+  assert.equal(calls.cleanupResults[0].p_error, null);
+});
+
+test('T030 Storage failure leaves a retryable cleanup job and retry completes it', async () => {
+  const { handler, calls } = shipmentHandlerWithFakeDatabase({ storageRemoveErrorOnce: true });
+  const id = '00000000-0000-4000-8000-000000000031';
+  const send = () => handler(new Request('https://offline.invalid/shipments', {
+    method: 'DELETE',
+    headers: { Authorization: 'Bearer offline-test' },
+    body: JSON.stringify({ id }),
+  }));
+  const first = await send();
+  assert.equal(first.status, 202);
+  assert.deepEqual(await first.json(), { deleted: true, id, cleanup_pending: true, replayed: false });
+  const retry = await send();
+  assert.equal(retry.status, 200);
+  assert.deepEqual(await retry.json(), { deleted: true, id, cleanup_pending: false, replayed: true });
+  assert.equal(calls.atomicDeletes.length, 2);
+  assert.equal(calls.storageRemovals.length, 2);
+  assert.match(calls.cleanupResults[0].p_error, /forced storage cleanup failure/);
+  assert.equal(calls.cleanupResults[1].p_error, null);
+});
+
+test('T030 relational delete failure never starts Storage cleanup', async () => {
+  const { handler, calls } = shipmentHandlerWithFakeDatabase({ shipmentDeleteError: true });
+  const response = await handler(new Request('https://offline.invalid/shipments', {
+    method: 'DELETE',
+    headers: { Authorization: 'Bearer offline-test' },
+    body: JSON.stringify({ id: '00000000-0000-4000-8000-000000000032' }),
+  }));
+  assert.equal(response.status, 500);
+  assert.deepEqual(calls.operations, ['database-delete']);
+  assert.deepEqual(calls.storageRemovals, []);
 });
 
 test('T012 grouped PATCH delegates group creation and update to one database call', async () => {

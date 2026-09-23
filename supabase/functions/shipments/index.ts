@@ -296,22 +296,32 @@ Deno.serve(async (req) => {
       if (actor.profile.role !== 'admin') return json({ error: 'Admin only' }, 403)
       const id = String(body.id || '')
       if (!id) return json({ error: 'id is required' }, 400)
-      const { data: existing, error: getErr } = await admin.from('shipments').select('id,voided_at').eq('id', id).eq('is_demo', false).single()
-      if (getErr || !existing) return json({ error: 'shipment not found' }, 404)
-      if (!existing.voided_at) return json({ error: 'void shipment before permanent delete' }, 409)
-
-      const { data: photos, error: photosErr } = await admin.from('shipment_photos').select('storage_path').eq('shipment_id', id)
-      if (photosErr) throw photosErr
-      const paths = (photos || []).map((x:any)=>x.storage_path).filter(Boolean)
-      if (paths.length) {
-        const { error: storageErr } = await admin.storage.from('factory-photos').remove(paths)
-        if (storageErr) throw storageErr
+      const { data: deletion, error: deleteErr } = await admin.rpc('delete_shipment_with_cleanup_job', { p_id: id })
+      if (deleteErr) {
+        if (deleteErr.code === 'P0002' || /shipment not found/i.test(deleteErr.message || '')) return json({ error: 'shipment not found' }, 404)
+        if (deleteErr.code === '23514' || /void shipment/i.test(deleteErr.message || '')) return json({ error: 'void shipment before permanent delete' }, 409)
+        throw deleteErr
       }
-      const { error: photoDeleteErr } = await admin.from('shipment_photos').delete().eq('shipment_id', id)
-      if (photoDeleteErr) throw photoDeleteErr
-      const { error } = await admin.from('shipments').delete().eq('id', id).eq('is_demo', false)
-      if (error) throw error
-      return json({ deleted: true, id })
+
+      const paths = Array.isArray(deletion?.storage_paths) ? deletion.storage_paths.filter(Boolean) : []
+      if (!deletion?.cleanup_completed && paths.length) {
+        const { error: storageErr } = await admin.storage.from('factory-photos').remove(paths)
+        if (storageErr) {
+          const { error: recordErr } = await admin.rpc('record_shipment_cleanup_result', {
+            p_id: id,
+            p_error: storageErr.message || String(storageErr),
+          })
+          if (recordErr) throw recordErr
+          return json({ deleted: true, id, cleanup_pending: true, replayed: Boolean(deletion?.replayed) }, 202)
+        }
+      }
+      if (!deletion?.cleanup_completed) {
+        const { error: recordErr } = await admin.rpc('record_shipment_cleanup_result', { p_id: id, p_error: null })
+        if (recordErr) {
+          return json({ deleted: true, id, cleanup_pending: true, replayed: Boolean(deletion?.replayed) }, 202)
+        }
+      }
+      return json({ deleted: true, id, cleanup_pending: false, replayed: Boolean(deletion?.replayed) })
     }
 
     return json({ error: 'method not allowed' }, 405)
