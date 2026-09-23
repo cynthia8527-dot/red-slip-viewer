@@ -44,6 +44,8 @@ test('T012/T031 calculator product creation is atomic, retry-safe, and preserves
   assert.match(html, /PRODUCT_PHOTO_API/);
   assert.match(html, /async function attachProductPhoto/);
   assert.match(save, /await attachProductPhoto\(product\.id,path,previousPath\)/);
+  assert.ok(save.indexOf('rememberProductPhoto(sessionStorage') < save.indexOf('.upload(path,pendingPhotoBlob'), 'pending path must be persisted before upload');
+  assert.match(html, /load\(\)\.then\(recoverProductPhotosOnOpen\)/);
   assert.doesNotMatch(save, /update\(\{reference_photo_path:path\}\)/);
 });
 
