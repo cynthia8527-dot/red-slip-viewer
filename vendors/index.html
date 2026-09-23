@@ -39,7 +39,7 @@ const supabase=createClient(APP_CONFIG.supabaseUrl,APP_CONFIG.supabaseKey,{auth:
 const $=id=>document.getElementById(id);let vendors=[],sites=[],selected=null,isAdmin=false,editingVendor=null,editingSite=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const tx=v=>v||'—';
 async function init(){const {data:{session}}=await supabase.auth.getSession();if(!session)return;const {data:p}=await supabase.from('profiles').select('role,active').eq('user_id',session.user.id).maybeSingle();if(!p?.active)return;isAdmin=p.role==='admin';document.body.classList.toggle('isAdmin',isAdmin);$('authGate').hidden=true;$('app').hidden=false;await load()}
-async function load(){const [{data:v,error:ve},{data:s,error:se}]=await Promise.all([supabase.from('vendors').select('*').order('code',{ascending:true,nullsFirst:false}),supabase.from('vendor_sites').select('*').order('site_name')]);if(ve||se){$('status').textContent='讀取失敗：'+(ve||se).message;return}vendors=v||[];sites=s||[];$('status').textContent=vendors.length+' 家廠商';render();if(selected)openDetail(selected.id)}
+async function load(){const [{data:v,error:ve},{data:s,error:se}]=await Promise.all([supabase.from('vendors').select('*').order('code',{ascending:true,nullsFirst:false}),supabase.from('vendor_sites').select('*').order('site_name')]);if(ve||se){$('status').textContent='讀取失敗：'+(ve||se).message;return false}vendors=v||[];sites=s||[];$('status').textContent=vendors.length+' 家廠商';render();if(selected)openDetail(selected.id);return true}
 function render(){const q=$('search').value.trim().toLowerCase(),list=vendors.filter(v=>!q||[v.code,v.short_name,v.invoice_title,v.tax_id,v.phone,v.address].some(x=>String(x||'').toLowerCase().includes(q)));$('grid').innerHTML=list.length?list.map(v=>'<article class="card" data-id="'+v.id+'"><div class="name">'+esc(v.short_name)+'</div><div class="muted">'+esc(v.code||'無代碼')+'｜'+esc(v.invoice_title||'未填發票抬頭')+'</div><div class="pill '+(!v.is_active?'inactive':'')+'">'+(v.is_active?'啟用':'停用')+'</div></article>').join(''):'<div class="muted">沒有符合的廠商</div>';document.querySelectorAll('[data-id]').forEach(x=>x.onclick=()=>openDetail(x.dataset.id))}
 function openDetail(id){const v=vendors.find(x=>x.id===id);if(!v)return;selected=v;const vs=sites.filter(x=>x.vendor_id===id);$('detail').hidden=false;$('detail').innerHTML='<div class="top"><div><h2 style="margin:0">'+esc(v.short_name)+'</h2><div class="muted">'+esc(v.invoice_title||'')+'</div></div><div class="tools">'+(isAdmin?'<button class="btn secondary" id="editVendor">修改廠商</button><button class="btn primary" id="addSite">＋ 據點</button>':'')+'</div></div><div class="detail"><div><div class="box"><b>代碼／統編</b>'+esc(tx(v.code))+'｜'+esc(tx(v.tax_id))+'</div><div class="box"><b>帳單模式</b>'+esc(tx(v.billing_mode))+'</div><div class="box"><b>聯絡人／電話／傳真</b>'+esc(tx(v.contact_name))+'｜'+esc(tx(v.phone))+'｜'+esc(tx(v.fax))+'</div><div class="box"><b>Email</b>'+esc(tx(v.email))+'</div><div class="box"><b>地址</b>'+esc(tx(v.address))+'</div><div class="box"><b>帳單／郵寄地址</b>'+esc(tx(v.billing_address))+'</div><div class="box"><b>備註</b>'+esc(tx(v.note))+'</div><div class="box"><b>舊資料備註／狀態</b>'+esc(tx(v.source_note))+'</div></div><div><div class="box"><b>分廠／據點</b>'+ (vs.length?vs.map(s=>'<div class="site"><strong>'+esc(s.site_name)+'</strong><div class="muted">'+esc(tx(s.site_code))+'</div><div>'+esc(tx(s.contact_name))+'｜'+esc(tx(s.phone))+'</div><div>'+esc(tx(s.address))+'</div>'+(isAdmin?'<div style="margin-top:6px"><button class="btn secondary" data-site="'+s.id+'">修改</button></div>':'')+'</div>').join(''):'目前沒有另外的據點')+'</div></div></div>';if(isAdmin){$('editVendor').onclick=()=>openVendor(v.id);$('addSite').onclick=()=>openSite();document.querySelectorAll('[data-site]').forEach(x=>x.onclick=()=>openSite(x.dataset.site))}}
 function openVendor(id=null){editingVendor=id?vendors.find(v=>v.id===id):null;const v=editingVendor||{};$('vendorTitle').textContent=id?'修改廠商':'新增廠商';$('vCode').value=v.code||'';$('vShort').value=v.short_name||'';$('vInvoice').value=v.invoice_title||'';$('vTax').value=v.tax_id||'';$('vBilling').value=v.billing_mode||'';$('vContact').value=v.contact_name||'';$('vPhone').value=v.phone||'';$('vFax').value=v.fax||'';$('vEmail').value=v.email||'';$('vAddress').value=v.address||'';$('vBillAddress').value=v.billing_address||'';$('vNote').value=v.note||'';$('vSourceNote').value=v.source_note||'';$('vActive').value=String(v.is_active!==false);$('vendorBack').classList.add('open')}
@@ -47,6 +47,7 @@ function openSite(id=null){if(!selected)return;editingSite=id?sites.find(s=>s.id
 async function importWorkbook(file){
  if(!isAdmin||!file)return;
  const state=$('importState');state.textContent='正在讀取 Excel…';
+ let added=0,skipped=0,siteAdded=0,writeAttempted=false;
  try{
   const XLSX=await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm');
   const buf=await file.arrayBuffer(),book=XLSX.read(buf,{type:'array'});
@@ -60,7 +61,7 @@ async function importWorkbook(file){
   }
   const clean=v=>{const x=String(v??'').replace(/\s+/g,' ').trim();return x||null};
   const rows=arr.slice(1).filter(r=>clean(r[0])&&clean(r[1]));
-  const current=vendors.slice();let added=0,skipped=0,siteAdded=0;
+  const current=vendors.slice();
   for(const r of rows){
    const code=clean(r[0]),shortName=clean(r[1]),invoice=clean(r[2]),tax=clean(r[4]),address=clean(r[8]);
    const sameCompany=current.find(v=>tax&&invoice&&v.tax_id===tax&&v.invoice_title===invoice);
@@ -68,7 +69,7 @@ async function importWorkbook(file){
    if(sameCompany&&branch){
     const exists=sites.some(x=>x.vendor_id===sameCompany.id&&(x.site_code===code||x.site_name===shortName));
     if(!exists){
-     const {data,error}=await supabase.from('vendor_sites').insert({vendor_id:sameCompany.id,site_code:code,site_name:shortName,contact_name:clean(r[5]),phone:clean(r[6]),fax:clean(r[7]),address,email:clean(r[9]),note:[clean(r[10]),clean(r[12])].filter(Boolean).join('｜')||null}).select().single();
+     writeAttempted=true;const {data,error}=await supabase.from('vendor_sites').insert({vendor_id:sameCompany.id,site_code:code,site_name:shortName,contact_name:clean(r[5]),phone:clean(r[6]),fax:clean(r[7]),address,email:clean(r[9]),note:[clean(r[10]),clean(r[12])].filter(Boolean).join('｜')||null}).select().single();
      if(error)throw error;sites.push(data);siteAdded++;
     }else skipped++;
     continue;
@@ -78,11 +79,20 @@ async function importWorkbook(file){
    const sourceNotes=[clean(r[11]),clean(r[12])].filter(Boolean).join('｜')||null;
    const allText=[invoice,clean(r[5]),clean(r[10]),sourceNotes].filter(Boolean).join(' ');
    const row={code,short_name:shortName,invoice_title:invoice,billing_mode:clean(r[3]),tax_id:tax,contact_name:clean(r[5]),phone:clean(r[6]),fax:clean(r[7]),address,email:clean(r[9]),billing_address:mailMap.get('c:'+code)||mailMap.get('t:'+invoice)||null,note:clean(r[10]),source_note:sourceNotes,is_active:!/很久沒交易|結束營業|沒來/.test(allText)};
-   const {data,error}=await supabase.from('vendors').insert(row).select().single();if(error)throw error;current.push(data);added++;
+   writeAttempted=true;const {data,error}=await supabase.from('vendors').insert(row).select().single();if(error)throw error;current.push(data);added++;
   }
-  state.textContent='✓ 匯入完成：新增 '+added+' 家廠商、'+siteAdded+' 個據點；略過 '+skipped+' 筆重複資料。';
-  await load();
- }catch(e){console.error(e);state.textContent='匯入失敗：'+(e.message||e)}
+  let refreshed=false;
+  try{refreshed=await load()}catch(refreshError){console.error(refreshError)}
+  state.textContent='✓ 匯入完成：新增 '+added+' 家廠商、'+siteAdded+' 個據點；略過 '+skipped+' 筆重複資料。'+(refreshed?'':'列表暫時無法更新，請重新開頁核對。');
+ }catch(e){
+  console.error(e);
+  if(!writeAttempted){state.textContent='Excel 讀取失敗，尚未開始寫入：'+(e.message||e)}
+  else{
+   let refreshed=false;
+   try{refreshed=await load()}catch(refreshError){console.error(refreshError)}
+   state.textContent='匯入中斷：已確認新增 '+added+' 家廠商、'+siteAdded+' 個據點；略過 '+skipped+' 筆。這不是整批回滾；最後失敗那筆是否已寫入仍不確定。'+(refreshed?'已重新讀取資料，請核對後再匯入。':'無法重新讀取資料，請重新開頁核對後再匯入。')+' 原因：'+(e.message||e);
+  }
+ }
  finally{$('importExcel').value=''}
 }
 $('importExcel').onchange=()=>importWorkbook($('importExcel').files[0]);
