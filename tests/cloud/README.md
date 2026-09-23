@@ -10,7 +10,7 @@
 - 測試專案已部署 `shipments` Edge Function v9，來源為 `../../supabase/functions/shipments/index.ts`，只把所有 `factory-photos` Storage 呼叫映射為 `factory-photos-test`；建構規則在 `shipments-test-source.mjs`，T025 會拒絕主專案 ID 並核對替換次數。POST 先驗證必填欄位，再呼叫單一資料庫函式建立群組與貨件；換群組的 PATCH 也由單一資料庫函式完成。照片上傳後改由此函式確認物件存在並建立資料列，資料列失敗時以服務權限刪除本次物件；相同路徑重送會回傳原關聯，前端網路層無回應時重試一次。永久刪除會先以資料庫交易保存 Storage 路徑並刪除關聯資料，再清 Storage 及記錄結果。部署仍要求 JWT。主環境函式**未部署此修正**。
 - `create_shipment_atomic.sql` 與 `update_shipment_atomic.sql` 已**只在測試專案**安裝：先核對專案標記和測試圖片桶，函式為 `security invoker`，且只授權 Edge Function 使用的 `service_role` 執行，不開放匿名或一般登入者直接呼叫。這是測試階段的 SQL，**不是可直接套到主環境的正式 migration**。
 - `create_product_with_initial_price.sql` 也只在**測試專案**安裝，先核對標記與測試圖片桶；網頁以一般登入者身分呼叫，函式以 `security invoker` 執行，內部檢查管理員，仍受商品及價格的 RLS 政策限制。匿名使用者不能執行。它也是測試階段 SQL，**不是主環境 migration**；草稿分支的 `board/` 快速新增改用此 RPC，不能在主環境缺少正式函式時直接發佈。
-- `create_product_with_initial_price_idempotent.sql` 已只在**測試專案**安裝：新增可空的 request UUID／fingerprint 與獨立 RPC，不覆蓋舊函式；同 key 以交易鎖序列化，相同內容回傳原商品，改內容回 409。函式仍為 `security invoker` 且只授權 `authenticated`，內部保留管理員檢查。它不是正式 migration，主環境未安裝。
+- `create_product_with_initial_price_idempotent.sql` 已只在**測試專案**安裝：新增可空的 request UUID／fingerprint 與獨立 RPC，不覆蓋舊函式；同 key 以交易鎖序列化，相同內容回傳原商品，改內容回 409。RPC 接受並保存獨立的廠商製程與價格備註，供 `board/` 與 `calculator/` 共用。函式仍為 `security invoker` 且只授權 `authenticated`，內部保留管理員檢查。它不是正式 migration，主環境未安裝。
 - `create_shipment_idempotent.sql` 已只在**測試專案**安裝：新增可空的 request ID／fingerprint 欄位與另一個 RPC，不覆蓋舊三參數函式。相同 request ID 會先取得交易級鎖；同內容回傳第一次結果，不同內容拒絕。測試專案 `shipments` Edge Function 已更新為 v9、仍要求 JWT；主環境未安裝或部署。
 - `delete_shipment_with_cleanup_job.sql` 已只在**測試專案**安裝：以單一交易把圖片路徑存入私有清理工作並刪除貨件／照片，Storage 清理結果另行記錄；同一貨件 ID 可重送。函式為 `security invoker`，表與 RPC 只授權 `service_role`。測試專案 Edge v9 已部署此流程，但因本環境無安全登入憑證尚未做登入整合；主環境未安裝或部署。
 - 主專案備份相關的 3 筆 migration 沒有部署到測試專案，以免建立排程或複製備份；早期公開讀取測試目錄的 migration 也未重播，因該政策不在主專案現況。
@@ -36,7 +36,7 @@
 | T028 | Passed（SQL 層） | 相同 request ID／內容回傳同一貨件，只留一筆貨件與群組；同 key 改內容被拒絕；連跑兩次通過。另以兩個資料庫連線並發呼叫、其中一個持鎖 2 秒，得到一個 `replayed=false`、一個 `replayed=true`，最後仍為 1 筆貨件／1 筆群組；測後清理為 0。已登入 API 固定情境已加入但尚未執行 |
 | T029 | Passed | 加入可空防重欄位後，以舊三參數建立 RPC 建立貨件，再以既有修改 RPC 更新；維持可讀、相同 ID／群組及空的防重欄位。連跑兩次通過，測後貨件／群組均為 0 |
 | T030 | Passed | 永久刪除先在單一交易保存圖片路徑並刪除關聯資料；關聯刪除失敗整筆回滾，Storage 失敗狀態可重試並完成。連跑兩次通過，測後合成貨件／照片／清理工作均為 0；測試 Edge v9 已部署，登入實測尚未執行 |
-| T031 | Passed | 快速新增商品相同 request UUID／內容只建立一筆商品與價格，改內容回 409；舊 RPC 保持可用。連跑兩次及兩連線持鎖並發通過，測後商品／價格／測試帳號均為 0；登入 API 案例尚未執行 |
+| T031 | Passed | 快速新增商品相同 request UUID／內容只建立一筆商品與價格，廠商製程／價格備註完整保存，改內容回 409；舊 RPC 保持可用。更新後連跑兩次通過，既有兩連線持鎖並發通過，測後商品／價格／測試帳號均為 0；登入 API 案例尚未執行 |
 
 另一次分階段 T019 驗證：先在舊結構放入合成價格 70，再套用價格歷史 migration，舊列仍為 70 且 `end_date` 為空。這是一次性的真實 migration 驗證，尚未做成可一鍵重建重跑的流程，**不得計入上表的 13 個可重跑情境**。
 
@@ -48,6 +48,6 @@
 
 接著先對舊 PATCH 加入紅燈案例：無效地點使貨件更新失敗，但留下 **1 筆新群組**，整次為 **3 Passed／1 Failed／0 Skipped**；測試清除該群組。修正後，換群組 PATCH 也使用單一資料庫函式，最近一次固定指令為 **5 Passed／0 Failed／0 Skipped**。成功時新群組正確關聯；失敗時新群組為 0 筆、原貨件 ID／群組／地點不變；暫存資料與工作階段清除，專用帳號保留。
 
-快速新增商品原本從網頁分兩次寫入，補救刪除也未檢查結果；草稿分支現改成具防重 key 的單一 RPC。先前已登入測試專案的正常商品＋價格關聯，以及故意讓價格外鍵失敗後商品為 0 筆的情境均通過。最近已實際執行的固定指令仍為 **7 Passed／0 Failed／0 Skipped**；更新後的指令預期共 11 項，其中兩項 T028 與兩項 T031 因本環境沒有安全登入憑證尚未執行，不能先算 Passed。與上述 SQL 層情境分開計數；完整瀏覽器操作仍未覆蓋。
+快速新增商品原本從網頁分兩次寫入，補救刪除也未檢查結果；草稿分支的 `board/` 與 `calculator/` 現共用具防重 key 的單一 RPC。`calculator/` 在商品成功但照片失敗時會明確告知不要重複新增；路徑更新確定失敗時清除剛上傳物件，但跨 Storage／資料庫仍不是原子交易。先前已登入測試專案的正常商品＋價格關聯，以及故意讓價格外鍵失敗後商品為 0 筆的情境均通過。最近已實際執行的固定指令仍為 **7 Passed／0 Failed／0 Skipped**；更新後的指令預期共 11 項，其中兩項 T028 與兩項 T031 因本環境沒有安全登入憑證尚未執行，不能先算 Passed。與上述 SQL 層情境分開計數；完整瀏覽器操作仍未覆蓋。
 
 主環境正式 migration 的前置檢查與未解決項見 `MAIN_MIGRATION_REVIEW.md`；這次沒有更動主環境。測試專案匿名登入維持關閉；T026／T027 的交易內假使用者 RLS 測試與已登入 Auth／Edge／Storage smoke 各自記錄。下一步是在原本保存憑證的 Windows 環境執行更新後的 `npm run test:cloud`，再依多步寫入盤點逐項處理；正式 migration 仍須另行審核。Google Drive 備份還原繼續延後。

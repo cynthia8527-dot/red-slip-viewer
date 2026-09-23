@@ -35,6 +35,8 @@ create unique index if not exists products_quick_create_request_id_idx
   on public.products (quick_create_request_id)
   where quick_create_request_id is not null;
 
+drop function if exists public.create_product_with_initial_price_idempotent(uuid,text,text,text,text,text,uuid,numeric,numeric,text,date);
+
 create or replace function public.create_product_with_initial_price_idempotent(
   p_request_id uuid,
   p_name text,
@@ -46,6 +48,8 @@ create or replace function public.create_product_with_initial_price_idempotent(
   p_unit_price numeric,
   p_minimum_charge numeric,
   p_unit text,
+  p_vendor_process text,
+  p_price_note text,
   p_effective_date date
 )
 returns jsonb
@@ -80,6 +84,8 @@ begin
     'unit_price', p_unit_price,
     'minimum_charge', p_minimum_charge,
     'unit', coalesce(nullif(btrim(p_unit), ''), 'kg'),
+    'vendor_process', nullif(btrim(p_vendor_process), ''),
+    'price_note', nullif(btrim(p_price_note), ''),
     'effective_date', p_effective_date
   )::text, 'UTF8'), 'sha256'), 'hex');
 
@@ -105,15 +111,16 @@ begin
 
   insert into public.vendor_prices (
     vendor_name, vendor_id, product_id, unit_price, minimum_charge,
-    unit, process_name, effective_date
+    unit, process_name, effective_date, note
   ) values (
     btrim(p_vendor_name), p_vendor_id, v_product.id, p_unit_price,
     p_minimum_charge, coalesce(nullif(btrim(p_unit), ''), 'kg'),
-    nullif(btrim(p_standard_process), ''), p_effective_date
+    nullif(btrim(p_vendor_process), ''), p_effective_date,
+    nullif(btrim(p_price_note), '')
   );
   return jsonb_build_object('product', to_jsonb(v_product), 'replayed', false);
 end
 $function$;
 
-revoke all on function public.create_product_with_initial_price_idempotent(uuid,text,text,text,text,text,uuid,numeric,numeric,text,date) from public, anon;
-grant execute on function public.create_product_with_initial_price_idempotent(uuid,text,text,text,text,text,uuid,numeric,numeric,text,date) to authenticated;
+revoke all on function public.create_product_with_initial_price_idempotent(uuid,text,text,text,text,text,uuid,numeric,numeric,text,text,text,date) from public, anon;
+grant execute on function public.create_product_with_initial_price_idempotent(uuid,text,text,text,text,text,uuid,numeric,numeric,text,text,text,date) to authenticated;

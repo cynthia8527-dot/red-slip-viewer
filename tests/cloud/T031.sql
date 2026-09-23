@@ -26,11 +26,11 @@ declare
 begin
   v_first := public.create_product_with_initial_price_idempotent(
     v_request_id, '[TEST] T031 retry product', 'steel', 'process', null,
-    '[TEST] T031 vendor', null, 50, 70, 'kg', current_date
+    '[TEST] T031 vendor', null, 50, 70, 'kg', 'vendor process', 'price note', current_date
   );
   v_retry := public.create_product_with_initial_price_idempotent(
     v_request_id, '[TEST] T031 retry product', 'steel', 'process', null,
-    '[TEST] T031 vendor', null, 50, 70, 'kg', current_date
+    '[TEST] T031 vendor', null, 50, 70, 'kg', 'vendor process', 'price note', current_date
   );
   if (v_first ->> 'replayed')::boolean or not (v_retry ->> 'replayed')::boolean
      or v_first #>> '{product,id}' is distinct from v_retry #>> '{product,id}' then
@@ -38,14 +38,15 @@ begin
   end if;
   if (select count(*) from public.products where quick_create_request_id = v_request_id) <> 1
      or (select count(*) from public.vendor_prices
-         where product_id = (v_first #>> '{product,id}')::uuid) <> 1 then
+         where product_id = (v_first #>> '{product,id}')::uuid
+           and process_name = 'vendor process' and note = 'price note') <> 1 then
     raise exception 'T031 retry created duplicate product or price rows';
   end if;
 
   begin
     perform public.create_product_with_initial_price_idempotent(
       v_request_id, '[TEST] T031 changed product', 'steel', 'process', null,
-      '[TEST] T031 vendor', null, 50, 70, 'kg', current_date
+      '[TEST] T031 vendor', null, 50, 70, 'kg', 'vendor process', 'price note', current_date
     );
   exception when sqlstate 'PT409' then
     v_rejected := true;
@@ -69,7 +70,7 @@ begin
   begin
     perform public.create_product_with_initial_price_idempotent(
       gen_random_uuid(), '[TEST] T031 staff product', null, null, null,
-      '[TEST] T031 vendor', null, 50, null, 'kg', current_date
+      '[TEST] T031 vendor', null, 50, null, 'kg', null, null, current_date
     );
   exception when raise_exception then
     if sqlerrm = 'Admin only' then v_rejected := true; else raise; end if;

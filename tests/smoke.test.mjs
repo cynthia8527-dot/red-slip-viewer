@@ -29,6 +29,21 @@ test('T012/T031 quick product uses one atomic idempotent product-and-price reque
   assert.doesNotMatch(quickSave, /\.from\('products'\)\.insert|\.from\('vendor_prices'\)\.insert|\.from\('products'\)\.delete/);
 });
 
+test('T012/T031 calculator product creation is atomic, retry-safe, and preserves price details', () => {
+  const html = readFileSync(new URL('../calculator/index.html', import.meta.url), 'utf8');
+  const save = html.split('async function saveProduct(){')[1]?.split('function availableProductsForVendor')[0];
+  assert.ok(save, 'calculator product handler is missing');
+  assert.match(html, /PENDING_CALCULATOR_PRODUCT_CREATE/);
+  assert.match(html, /sessionStorage\.setItem\(PENDING_CALCULATOR_PRODUCT_CREATE/);
+  assert.match(save, /supabase\.rpc\('create_product_with_initial_price_idempotent'/);
+  assert.match(save, /p_vendor_process:\$\('npVendorProcess'\)/);
+  assert.match(save, /p_price_note:\$\('npPriceNote'\)/);
+  assert.match(save, /clearCalculatorProductCreateRequest\(request\.key\)/);
+  assert.doesNotMatch(save, /\.from\('products'\)\.insert|\.from\('vendor_prices'\)\.insert/);
+  assert.match(save, /商品與價格已建立，不要再按新增/);
+  assert.match(save, /\.remove\(\[path\]\)/);
+});
+
 test('T017 shipment create keeps one request key across an uncertain retry', () => {
   const board = readFileSync(new URL('../board/index.html', import.meta.url), 'utf8');
   assert.match(board, /PENDING_SHIPMENT_CREATE/);

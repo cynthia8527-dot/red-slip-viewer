@@ -151,7 +151,8 @@ $('qSave').onclick=async()=>{
       p_standard_process:$('qProcess').value.trim()||null,p_process_notes:$('qNotes').value.trim()||null,
       p_vendor_name:vendor,p_vendor_id:vendorIdForName(vendor),p_unit_price:Number(price),
       p_minimum_charge:$('qMinimum').value===''?null:Number($('qMinimum').value),
-      p_unit:$('qUnit').value.trim()||'kg',p_effective_date:today()
+      p_unit:$('qUnit').value.trim()||'kg',p_vendor_process:$('qProcess').value.trim()||null,
+      p_price_note:null,p_effective_date:today()
     },request=quickProductCreateRequest(body);
     const {data,error}=await supabaseClient.rpc('create_product_with_initial_price_idempotent',{p_request_id:request.key,...body});
     if(error)throw error;

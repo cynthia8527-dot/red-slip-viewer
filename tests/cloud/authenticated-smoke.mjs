@@ -243,6 +243,7 @@ async function run() {
     const retryProductArgs = {
       ...priceArgs, p_request_id: quickProductRetryKey,
       p_name: retryProductName, p_vendor_id: null,
+      p_vendor_process: 'test vendor process', p_price_note: 'test price note',
     };
     const firstQuickProduct = await request('/rest/v1/rpc/create_product_with_initial_price_idempotent', {
       method: 'POST', token, body: retryProductArgs,
