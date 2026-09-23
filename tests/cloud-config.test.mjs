@@ -58,6 +58,18 @@ test('T024 every cloud SQL case checks the dedicated test-project marker', () =>
   }
 });
 
+test('T019 post-migration legacy-write probe is guarded and leaves no fixture by design', () => {
+  const source = readFileSync(new URL('./cloud/T019_legacy_writes.sql', import.meta.url), 'utf8');
+  assert.match(source, /test_guard\.project_identity/);
+  assert.match(source, new RegExp(testProject));
+  assert.match(source, /factory-photos-test/);
+  assert.doesNotMatch(source, new RegExp(mainProject));
+  assert.match(source, /delete from public\.shipments where id = v_shipment_id/i);
+  assert.match(source, /delete from public\.vendor_prices where id = v_price_id/i);
+  assert.match(source, /delete from public\.products where id = v_product_id/i);
+  assert.match(source, /T019 POSTMIGRATION PASS/);
+});
+
 test('T024 authenticated cloud runner is test-project-only and ignores local credentials', () => {
   const runner = readFileSync(new URL('./cloud/authenticated-smoke.mjs', import.meta.url), 'utf8');
   const ignore = readFileSync(new URL('../.gitignore', import.meta.url), 'utf8');
