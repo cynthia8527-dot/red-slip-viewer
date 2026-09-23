@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { buildPriceHistoryRehearsalSql } from './cloud/price-history-rehearsal.mjs';
 
 const cloudCases = ['T008', 'T009', 'T010', 'T011', 'T012', 'T018', 'T021', 'T026', 'T027', 'T028', 'T029'];
 const testProject = 'zfcsuxihpakrsohvcwlr';
@@ -68,6 +69,20 @@ test('T019 post-migration legacy-write probe is guarded and leaves no fixture by
   assert.match(source, /delete from public\.vendor_prices where id = v_price_id/i);
   assert.match(source, /delete from public\.products where id = v_product_id/i);
   assert.match(source, /T019 POSTMIGRATION PASS/);
+});
+
+test('T019 historical price DDL rehearsal uses only a rollback-scoped test table', () => {
+  assert.throws(() => buildPriceHistoryRehearsalSql(mainProject));
+  const sql = buildPriceHistoryRehearsalSql(testProject);
+  assert.match(sql, /test_guard\.project_identity/);
+  assert.match(sql, /create temporary table t019_vendor_prices/i);
+  assert.match(sql, /alter table pg_temp\.t019_vendor_prices\s+add column if not exists end_date date/i);
+  assert.match(sql, /check \(unit_price >= 0\)/i);
+  assert.match(sql, /create index if not exists t019_vendor_prices_history_lookup_idx/i);
+  assert.match(sql, /rollback;$/i);
+  assert.doesNotMatch(sql, /public\.vendor_prices/);
+  assert.doesNotMatch(sql, new RegExp(mainProject));
+  assert.ok(sql.indexOf('test_guard.project_identity') < sql.indexOf('create temporary table'));
 });
 
 test('T024 authenticated cloud runner is test-project-only and ignores local credentials', () => {

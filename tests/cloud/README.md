@@ -43,6 +43,10 @@
 
 另一次分階段 T019 驗證：先在舊結構放入合成價格 70，再套用價格歷史 migration，舊列仍為 70 且 `end_date` 為空。這是一次性的真實 migration 驗證，尚未做成可一鍵重建重跑的流程，**不得額外計入上表的 14 個可重跑情境**。
 
+新增可重跑的**價格歷史表 DDL 子集演練**：`price-history-rehearsal.mjs` 校驗歷史 migration 的 SHA-256，只擷取函式宣告前的表 DDL，將 `public.vendor_prices` 映射到交易內暫存的舊式 `t019_vendor_prices`；先插入價格 70，再套用原欄位、限制及索引語句並驗證舊值與失敗案例，最後 `rollback`。只允許指定測試專案，任何歷史 SQL 變更會先停止要求審查。已在測試專案**連跑兩次，1 Passed／0 Failed／0 Skipped**（每輪），並確認暫存索引及公開表測試前綴均為 0。這是上表 14 個資料情境之外的 **1 個獨立演練**，不含歷史函式／GRANT、完整舊版 baseline 或正式候選 migration，不得稱 T019 整體完成。
+
+重跑時先用 `node --input-type=module -e "import {buildPriceHistoryRehearsalSql} from './tests/cloud/price-history-rehearsal.mjs'; process.stdout.write(buildPriceHistoryRehearsalSql('zfcsuxihpakrsohvcwlr'))"` 產生 SQL；核對首段測試標記及結尾 `rollback`，再由已連接的 Supabase 工具**明確指定測試專案 ID**執行。此指令本身只產生文字，不連資料庫。
+
 先前的 **5 Passed／2 Failed／0 Skipped** 揭露 T010、T021 衝突；在**測試專案**加入限制後，7 個資料情境全通過，再加入 T026／T027 權限與原子性、T028 防重、T029 舊呼叫相容、T030 可重試刪除及 T031 商品防重情境，當時可重跑 SQL 層為 **13 Passed／0 Failed／0 Skipped**。本輪另加 T019 更新後舊式讀寫情境，連跑兩次 **1 Passed／0 Failed／0 Skipped**，所以各情境最近已驗證合計 **14 Passed／0 Failed／0 Skipped**；這不是本輪重新批次執行全部 14 個情境。T009 的測試圖片路徑夾具同步改成符合新路徑格式，以便專注驗證外鍵拒絕；不是降低預期。T010、T021、T026、T027、T029、T030、T031、T019 更新後舊式讀寫各已重跑兩次。主環境尚未套用限制或新函式，不能宣稱主環境也通過。
 
 2026-09-22 的已登入一次性整合檢查另計為 **8 Passed／1 Failed／0 Skipped**，詳見 `AUTHENTICATED_SMOKE_2026-09-22.md`。失敗的是 T012／T017：無效貨件 POST 回 400，卻留下先建立的收貨群組。測後已清除這筆群組；貨件照片的真實 Storage 上傳、關聯與永久刪除則通過。這不是自動測試的綠燈，不應與上述 SQL 層數字合併。最後確認相關業務表、暫時帳號與測試圖片均為 0 筆。
