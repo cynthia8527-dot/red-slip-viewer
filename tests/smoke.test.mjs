@@ -41,7 +41,10 @@ test('T012/T031 calculator product creation is atomic, retry-safe, and preserves
   assert.match(save, /clearCalculatorProductCreateRequest\(request\.key\)/);
   assert.doesNotMatch(save, /\.from\('products'\)\.insert|\.from\('vendor_prices'\)\.insert/);
   assert.match(save, /商品與價格已建立，不要再按新增/);
-  assert.match(save, /\.remove\(\[path\]\)/);
+  assert.match(html, /PRODUCT_PHOTO_API/);
+  assert.match(html, /async function attachProductPhoto/);
+  assert.match(save, /await attachProductPhoto\(product\.id,path,previousPath\)/);
+  assert.doesNotMatch(save, /update\(\{reference_photo_path:path\}\)/);
 });
 
 test('T017 shipment create keeps one request key across an uncertain retry', () => {
