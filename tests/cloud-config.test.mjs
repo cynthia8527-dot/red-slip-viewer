@@ -107,3 +107,20 @@ test('T024 photo cloud runner refuses a mismatched project before any network ca
   assert.match(child.stderr, /no request was sent/);
   assert.match(child.stderr, /passed=0, failed=1, skipped=0/);
 });
+
+test('T021/T030 shipment photo cloud runner is test-project-only and fails closed', () => {
+  const url = new URL('./cloud/authenticated-shipment-photos.mjs', import.meta.url);
+  const source = readFileSync(url, 'utf8');
+  assert.match(source, new RegExp(`const projectId = '${testProject}'`));
+  assert.match(source, /const baseUrl = `https:\/\/\$\{projectId\}\.supabase\.co`/);
+  assert.match(source, /const bucket = 'factory-photos-test'/);
+  assert.match(source, /new Set\(\)/);
+  assert.match(source, /\/auth\/v1\/logout\?scope=global/);
+  assert.doesNotMatch(source, new RegExp(mainProject));
+  const child = spawnSync(process.execPath, [url.pathname], {
+    encoding: 'utf8', env: { ...process.env, TEST_CLOUD_PROJECT_ID: 'wrong-project' },
+  });
+  assert.equal(child.status, 1);
+  assert.match(child.stderr, /no request was sent/);
+  assert.match(child.stderr, /passed=0, failed=1, skipped=0/);
+});

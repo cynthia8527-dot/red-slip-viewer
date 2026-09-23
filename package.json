@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node tests/run.mjs",
     "test:cloud": "node tests/cloud/authenticated-smoke.mjs",
-    "test:cloud:photos": "node tests/cloud/authenticated-product-photos.mjs"
+    "test:cloud:photos": "node tests/cloud/authenticated-product-photos.mjs",
+    "test:cloud:shipment-photos": "node tests/cloud/authenticated-shipment-photos.mjs"
   },
   "engines": {
     "node": ">=22.13.0"
