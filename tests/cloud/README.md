@@ -7,11 +7,11 @@
 - 已在獨立測試專案重播 13 筆業務結構 migration，原文保存在 `../reference/main-migrations/`。測試部署把圖片桶名稱映射為 `factory-photos-test`。
 - `observed_dispatch_locations.sql`、`observed_shipments_voided_by_index.sql` 是主專案現況存在、但歷史 migration 缺漏的結構重建；`test_project_guard.sql` 僅屬測試防呆。它們已部署到**測試專案**，不可當成已核准的主環境 migration。
 - `enforce_confirmed_data_contracts.sql` 是本階段在**測試專案**套用的三項限制：廠商代碼＋簡稱唯一（兩筆空代碼也視為重複）、叫車名稱＋地址唯一、貨件照片路徑須屬於該貨件。執行前會核對測試專案標記與圖片桶，並檢查舊資料是否衝突；不會自動刪除或修正舊資料。它帶有測試專案專用防呆，**不是可直接套到主環境的 migration**。
-- 測試專案已部署 `shipments` Edge Function v8，來源為 `../../supabase/functions/shipments/index.ts`，只把所有 `factory-photos` Storage 呼叫映射為 `factory-photos-test`；建構規則在 `shipments-test-source.mjs`，T025 會拒絕主專案 ID 並核對替換次數。POST 先驗證必填欄位，再呼叫單一資料庫函式建立群組與貨件；換群組的 PATCH 也由單一資料庫函式完成。照片上傳後改由此函式確認物件存在並建立資料列，資料列失敗時以服務權限刪除本次物件；相同路徑重送會回傳原關聯，前端網路層無回應時重試一次。部署仍要求 JWT。主環境函式**未部署此修正**。
+- 測試專案已部署 `shipments` Edge Function v9，來源為 `../../supabase/functions/shipments/index.ts`，只把所有 `factory-photos` Storage 呼叫映射為 `factory-photos-test`；建構規則在 `shipments-test-source.mjs`，T025 會拒絕主專案 ID 並核對替換次數。POST 先驗證必填欄位，再呼叫單一資料庫函式建立群組與貨件；換群組的 PATCH 也由單一資料庫函式完成。照片上傳後改由此函式確認物件存在並建立資料列，資料列失敗時以服務權限刪除本次物件；相同路徑重送會回傳原關聯，前端網路層無回應時重試一次。永久刪除會先以資料庫交易保存 Storage 路徑並刪除關聯資料，再清 Storage 及記錄結果。部署仍要求 JWT。主環境函式**未部署此修正**。
 - `create_shipment_atomic.sql` 與 `update_shipment_atomic.sql` 已**只在測試專案**安裝：先核對專案標記和測試圖片桶，函式為 `security invoker`，且只授權 Edge Function 使用的 `service_role` 執行，不開放匿名或一般登入者直接呼叫。這是測試階段的 SQL，**不是可直接套到主環境的正式 migration**。
 - `create_product_with_initial_price.sql` 也只在**測試專案**安裝，先核對標記與測試圖片桶；網頁以一般登入者身分呼叫，函式以 `security invoker` 執行，內部檢查管理員，仍受商品及價格的 RLS 政策限制。匿名使用者不能執行。它也是測試階段 SQL，**不是主環境 migration**；草稿分支的 `board/` 快速新增改用此 RPC，不能在主環境缺少正式函式時直接發佈。
-- `create_shipment_idempotent.sql` 已只在**測試專案**安裝：新增可空的 request ID／fingerprint 欄位與另一個 RPC，不覆蓋舊三參數函式。相同 request ID 會先取得交易級鎖；同內容回傳第一次結果，不同內容拒絕。測試專案 `shipments` Edge Function 已更新為 v8、仍要求 JWT；主環境未安裝或部署。
-- `delete_shipment_with_cleanup_job.sql` 已只在**測試專案**安裝：以單一交易把圖片路徑存入私有清理工作並刪除貨件／照片，Storage 清理結果另行記錄；同一貨件 ID 可重送。函式為 `security invoker`，表與 RPC 只授權 `service_role`。草稿 Edge 原始碼已改用此流程，但測試專案仍是 v8、**尚未部署此新版**，主環境也未安裝或部署。
+- `create_shipment_idempotent.sql` 已只在**測試專案**安裝：新增可空的 request ID／fingerprint 欄位與另一個 RPC，不覆蓋舊三參數函式。相同 request ID 會先取得交易級鎖；同內容回傳第一次結果，不同內容拒絕。測試專案 `shipments` Edge Function 已更新為 v9、仍要求 JWT；主環境未安裝或部署。
+- `delete_shipment_with_cleanup_job.sql` 已只在**測試專案**安裝：以單一交易把圖片路徑存入私有清理工作並刪除貨件／照片，Storage 清理結果另行記錄；同一貨件 ID 可重送。函式為 `security invoker`，表與 RPC 只授權 `service_role`。測試專案 Edge v9 已部署此流程，但因本環境無安全登入憑證尚未做登入整合；主環境未安裝或部署。
 - 主專案備份相關的 3 筆 migration 沒有部署到測試專案，以免建立排程或複製備份；早期公開讀取測試目錄的 migration 也未重播，因該政策不在主專案現況。
 - 套用上述三項新限制**之前**，已比對 10 個業務表、32 個約束、37 條 RLS 政策及 28 個索引，測試專案與主專案原本現況相符（排除備份表；Storage 政策的 bucket ID 依環境不同）。目前測試專案因這三項限制而有意與主環境不同。
 - 已依使用者同意，在**測試專案**保留一個 `codex-cloud@example.invalid` 專用管理測試帳號。此電腦的 `credentials.local.json` 被 git 忽略，密碼由目前 Windows 使用者的 DPAPI 加密；它不能在另一台電腦或其他 Windows 使用者下直接解密。沒有服務角色金鑰，亦沒有把密碼或本機憑證提交到 GitHub。
@@ -34,9 +34,9 @@
 | T027 | Passed | 真實管理員可原子建立商品與價格；錯誤價格外鍵不留商品；員工被拒絕。交易內假帳號與資料整筆回滾，重跑兩次通過 |
 | T028 | Passed（SQL 層） | 相同 request ID／內容回傳同一貨件，只留一筆貨件與群組；同 key 改內容被拒絕；連跑兩次通過。另以兩個資料庫連線並發呼叫、其中一個持鎖 2 秒，得到一個 `replayed=false`、一個 `replayed=true`，最後仍為 1 筆貨件／1 筆群組；測後清理為 0。已登入 API 固定情境已加入但尚未執行 |
 | T029 | Passed | 加入可空防重欄位後，以舊三參數建立 RPC 建立貨件，再以既有修改 RPC 更新；維持可讀、相同 ID／群組及空的防重欄位。連跑兩次通過，測後貨件／群組均為 0 |
-| T030 | Passed | 永久刪除先在單一交易保存圖片路徑並刪除關聯資料；關聯刪除失敗整筆回滾，Storage 失敗狀態可重試並完成。連跑兩次通過，測後合成貨件／照片／清理工作均為 0；新版 Edge 尚未部署或登入實測 |
+| T030 | Passed | 永久刪除先在單一交易保存圖片路徑並刪除關聯資料；關聯刪除失敗整筆回滾，Storage 失敗狀態可重試並完成。連跑兩次通過，測後合成貨件／照片／清理工作均為 0；測試 Edge v9 已部署，登入實測尚未執行 |
 
-另一次分階段 T019 驗證：先在舊結構放入合成價格 70，再套用價格歷史 migration，舊列仍為 70 且 `end_date` 為空。這是一次性的真實 migration 驗證，尚未做成可一鍵重建重跑的流程，**不得計入上表的 11 個可重跑情境**。
+另一次分階段 T019 驗證：先在舊結構放入合成價格 70，再套用價格歷史 migration，舊列仍為 70 且 `end_date` 為空。這是一次性的真實 migration 驗證，尚未做成可一鍵重建重跑的流程，**不得計入上表的 12 個可重跑情境**。
 
 先前的 **5 Passed／2 Failed／0 Skipped** 揭露 T010、T021 衝突；在**測試專案**加入限制後，7 個資料情境全通過，再加入 T026／T027 權限與原子性、T028 防重、T029 舊呼叫相容及 T030 可重試刪除情境，目前可重跑 SQL 層為 **12 Passed／0 Failed／0 Skipped**。T009 的測試圖片路徑夾具同步改成符合新路徑格式，以便專注驗證外鍵拒絕；不是降低預期。T010、T021、T026、T027、T029、T030 已各重跑兩次。主環境尚未套用限制或新函式，不能宣稱主環境也通過。
 
