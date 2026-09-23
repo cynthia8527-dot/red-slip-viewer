@@ -17,11 +17,15 @@ test('T015 static smoke: entry pages and data module still exist', () => {
   assert.match(readFileSync(new URL('../data/pricing.js', import.meta.url), 'utf8'), /export function priceIsEffective/);
 });
 
-test('T012 quick product uses one atomic product-and-price request', () => {
+test('T012/T031 quick product uses one atomic idempotent product-and-price request', () => {
   const html = readFileSync(new URL('../board/index.html', import.meta.url), 'utf8');
   const quickSave = html.split("$('qSave').onclick=async()=>{")[1]?.split("$('fVendor').oninput=")[0];
   assert.ok(quickSave, 'quick product handler is missing');
-  assert.match(quickSave, /supabaseClient\.rpc\('create_product_with_initial_price'/);
+  assert.match(quickSave, /supabaseClient\.rpc\('create_product_with_initial_price_idempotent'/);
+  assert.match(html, /PENDING_QUICK_PRODUCT_CREATE/);
+  assert.match(html, /sessionStorage\.setItem\(PENDING_QUICK_PRODUCT_CREATE/);
+  assert.match(quickSave, /p_request_id:request\.key/);
+  assert.match(quickSave, /clearQuickProductCreateRequest\(request\.key\)/);
   assert.doesNotMatch(quickSave, /\.from\('products'\)\.insert|\.from\('vendor_prices'\)\.insert|\.from\('products'\)\.delete/);
 });
 

@@ -50,11 +50,13 @@ const SUPABASE_URL=APP_CONFIG.supabaseUrl,SUPABASE_KEY=APP_CONFIG.supabaseKey,LO
 const supabaseClient=createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 const SHIP_API=new URL('/functions/v1/shipments',SUPABASE_URL).href;
 const locations=['蘆洲','五股','八里'],statuses=['未開始','處理中','完成待出貨','已出貨'];const $=id=>document.getElementById(id);
-const PENDING_SHIPMENT_CREATE='factory-board:pending-shipment-create';let pendingShipmentCreate=null;
+const PENDING_SHIPMENT_CREATE='factory-board:pending-shipment-create',PENDING_QUICK_PRODUCT_CREATE='factory-board:pending-quick-product-create';let pendingShipmentCreate=null,pendingQuickProductCreate=null;
 let tasks=[],products=[],prices=[],vendorMasters=[],view='active',filter='all',editingId=null,loadingNow=false,authorized=false,currentRole='staff',shipPeriodInitialized=false;const photoUrls=new Map();
 async function authFetch(url,options={}){const {data:{session}}=await supabaseClient.auth.getSession();if(!session)throw new Error('登入已失效，請重新登入');return fetch(url,{...options,headers:{...(options.headers||{}),Authorization:`Bearer ${session.access_token}`}})}
 function shipmentCreateRequest(body){const serialized=JSON.stringify(body);if(!pendingShipmentCreate){try{pendingShipmentCreate=JSON.parse(sessionStorage.getItem(PENDING_SHIPMENT_CREATE)||'null')}catch{pendingShipmentCreate=null}}if(!pendingShipmentCreate||pendingShipmentCreate.body!==serialized){pendingShipmentCreate={key:crypto.randomUUID(),body:serialized};try{sessionStorage.setItem(PENDING_SHIPMENT_CREATE,JSON.stringify(pendingShipmentCreate))}catch{}}return pendingShipmentCreate}
 function clearShipmentCreateRequest(key){if(pendingShipmentCreate?.key!==key)return;pendingShipmentCreate=null;try{sessionStorage.removeItem(PENDING_SHIPMENT_CREATE)}catch{}}
+function quickProductCreateRequest(body){const serialized=JSON.stringify(body);if(!pendingQuickProductCreate){try{pendingQuickProductCreate=JSON.parse(sessionStorage.getItem(PENDING_QUICK_PRODUCT_CREATE)||'null')}catch{pendingQuickProductCreate=null}}if(!pendingQuickProductCreate||pendingQuickProductCreate.body!==serialized){pendingQuickProductCreate={key:crypto.randomUUID(),body:serialized};try{sessionStorage.setItem(PENDING_QUICK_PRODUCT_CREATE,JSON.stringify(pendingQuickProductCreate))}catch{}}return pendingQuickProductCreate}
+function clearQuickProductCreateRequest(key){if(pendingQuickProductCreate?.key!==key)return;pendingQuickProductCreate=null;try{sessionStorage.removeItem(PENDING_QUICK_PRODUCT_CREATE)}catch{}}
 function resetShipmentCreateForm(){['fItem','fMaterial','fProcess','fBoxes','fWeight','fDue','fNote','fBatch'].forEach(x=>$(x).value='');$('fPhotos').value='';$('fProduct').value='';$('fStatus').value='未開始';$('fUrgent').checked=false;$('fCannotMix').checked=false;refreshProductSelect('f')}
 function authMessage(text,type=''){const el=$('authMsg');el.textContent=text;el.className='authMsg'+(type?' '+type:'')}
 function showLogin(message='尚未登入。',type=''){authorized=false;$('appMain').hidden=true;$('authGate').hidden=false;authMessage(message,type)}
@@ -144,15 +146,17 @@ $('qSave').onclick=async()=>{
   $('quickModal').classList.add('saving');
   let product=null;
   try{
-    const {data,error}=await supabaseClient.rpc('create_product_with_initial_price',{
+    const body={
       p_name:name,p_material:$('qMaterial').value.trim()||null,
       p_standard_process:$('qProcess').value.trim()||null,p_process_notes:$('qNotes').value.trim()||null,
       p_vendor_name:vendor,p_vendor_id:vendorIdForName(vendor),p_unit_price:Number(price),
       p_minimum_charge:$('qMinimum').value===''?null:Number($('qMinimum').value),
       p_unit:$('qUnit').value.trim()||'kg',p_effective_date:today()
-    });
+    },request=quickProductCreateRequest(body);
+    const {data,error}=await supabaseClient.rpc('create_product_with_initial_price_idempotent',{p_request_id:request.key,...body});
     if(error)throw error;
-    product=data;
+    product=data.product;
+    clearQuickProductCreateRequest(request.key);
     closeQuickProduct();
     await loadCatalog();
     $('vendorList').innerHTML=vendorNames().map(v=>`<option value="${esc(v)}"></option>`).join('');

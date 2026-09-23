@@ -75,10 +75,12 @@ async function run() {
   const rollbackVendor = `CODEX_ROLLBACK_${suffix}`;
   const failedProductName = `CODEX_PRICE_FAIL_${suffix}`;
   const validProductName = `CODEX_PRICE_VALID_${suffix}`;
+  const retryProductName = `CODEX_PRICE_RETRY_${suffix}`;
   const retryLabel = `CODEX_RETRY_${suffix}`;
   const retryVendor = `CODEX_RETRY_${suffix}`;
   const retryKey = randomUUID();
-  const productNames = [failedProductName, validProductName];
+  const quickProductRetryKey = randomUUID();
+  const productNames = [failedProductName, validProductName, retryProductName];
   const fixtures = [{ label, vendor }, { label: validLabel, vendor: validVendor }, { label: patchLabel, vendor: validVendor }, { label: rollbackLabel, vendor: rollbackVendor }, { label: retryLabel, vendor: retryVendor }];
   let token;
   let failure;
@@ -236,6 +238,40 @@ async function run() {
         linkedPrice.data[0].vendor_name !== validVendor || Number(linkedPrice.data[0].unit_price) !== 50 ||
         Number(linkedPrice.data[0].minimum_charge) !== 70) {
       throw new Error(`quick product must have exactly one linked initial price; got ${JSON.stringify(linkedPrice.data)}`);
+    }
+    passed++;
+    const retryProductArgs = {
+      ...priceArgs, p_request_id: quickProductRetryKey,
+      p_name: retryProductName, p_vendor_id: null,
+    };
+    const firstQuickProduct = await request('/rest/v1/rpc/create_product_with_initial_price_idempotent', {
+      method: 'POST', token, body: retryProductArgs,
+    });
+    const repeatedQuickProduct = await request('/rest/v1/rpc/create_product_with_initial_price_idempotent', {
+      method: 'POST', token, body: retryProductArgs,
+    });
+    const retryProducts = await request(productPath(retryProductName), { token });
+    const retryProductId = firstQuickProduct.data?.product?.id;
+    const retryPrices = retryProductId
+      ? await request(`/rest/v1/vendor_prices?select=id&product_id=eq.${retryProductId}`, { token })
+      : { status: 0, data: null };
+    if (firstQuickProduct.status !== 200 || firstQuickProduct.data?.replayed !== false || !retryProductId ||
+        repeatedQuickProduct.status !== 200 || repeatedQuickProduct.data?.replayed !== true ||
+        repeatedQuickProduct.data?.product?.id !== retryProductId ||
+        retryProducts.status !== 200 || retryProducts.data?.length !== 1 ||
+        retryPrices.status !== 200 || retryPrices.data?.length !== 1) {
+      throw new Error(`quick product retry must keep one product/price; got ${JSON.stringify({ first: firstQuickProduct.data, repeated: repeatedQuickProduct.data, products: retryProducts.data, prices: retryPrices.data })}`);
+    }
+    passed++;
+    const changedQuickProduct = await request('/rest/v1/rpc/create_product_with_initial_price_idempotent', {
+      method: 'POST', token,
+      body: { ...retryProductArgs, p_name: `${retryProductName}_CHANGED` },
+    });
+    const afterChangedQuickProduct = await request(productPath(retryProductName), { token });
+    if (changedQuickProduct.status !== 409 ||
+        !/different product data/.test(changedQuickProduct.data?.message || '') ||
+        afterChangedQuickProduct.status !== 200 || afterChangedQuickProduct.data?.length !== 1) {
+      throw new Error(`changed quick product with reused key must be HTTP 409 and keep one row; got HTTP ${changedQuickProduct.status} / ${JSON.stringify(changedQuickProduct.data)} / rows=${afterChangedQuickProduct.data?.length ?? 'unknown'}`);
     }
     passed++;
   } catch (error) {
