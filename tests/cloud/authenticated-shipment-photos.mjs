@@ -1,3 +1,4 @@
+import { createStorageProbe } from './storage-probe.mjs';
 import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -39,7 +40,7 @@ async function request(path, { method = 'GET', token, body, image = false, heade
     ...(image ? { body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WlX4a4AAAAASUVORK5CYII=', 'base64') }
       : body ? { body: JSON.stringify(body) } : {}),
   });
-  if (method === 'GET' && response.status === 200 && path.startsWith('/storage/v1/object/')) {
+  if (method === 'GET' && response.status === 200 && path.startsWith('/storage/v1/object/') && !path.startsWith('/storage/v1/object/info/')) {
     await response.arrayBuffer();
     return { status: response.status, data: null };
   }
@@ -50,11 +51,7 @@ async function request(path, { method = 'GET', token, body, image = false, heade
 }
 
 const objectUrl = path => `/storage/v1/object/${bucket}/${path}`;
-async function isPresent(path, token) {
-  const result = await request(objectUrl(path), { token });
-  if (![200, 404].includes(result.status)) throw new Error(`test photo inspection HTTP ${result.status}`);
-  return result.status === 200;
-}
+const { isPresent, waitForAbsent } = createStorageProbe(request, bucket);
 
 async function run() {
   requireTestEnvironment();
@@ -143,7 +140,7 @@ async function run() {
     const afterShipment = await shipmentRows();
     const afterPhotos = await photoRows(id);
     if (afterShipment.status !== 200 || afterShipment.data?.length !== 0 ||
-        afterPhotos.status !== 200 || afterPhotos.data?.length !== 0 || await isPresent(photoPath, token)) {
+        afterPhotos.status !== 200 || afterPhotos.data?.length !== 0 || !await waitForAbsent(photoPath, token)) {
       throw new Error('permanent deletion left a shipment, photo row, or test object');
     }
     passed++;
@@ -161,10 +158,13 @@ async function run() {
           const photos = await photoRows(id);
           if (photos.status !== 200 || photos.data?.length !== 0) throw new Error('shipment photo row cleanup not verified');
         }
-        if (photoPath && await isPresent(photoPath, token)) {
-          // Only remove this exact random path after its shipment/photo rows are gone.
-          const removed = await request(`/storage/v1/object/${bucket}`, { method: 'DELETE', token, body: { prefixes: [photoPath] } });
-          if (removed.status !== 200 || await isPresent(photoPath, token)) throw new Error('test object cleanup not verified');
+        if (photoPath) {
+          if (await isPresent(photoPath, token)) {
+            // Only remove this exact random path after its shipment/photo rows are gone.
+            const removed = await request(`/storage/v1/object/${bucket}`, { method: 'DELETE', token, body: { prefixes: [photoPath] } });
+            if (removed.status !== 200) throw new Error('test object cleanup delete failed');
+          }
+          await waitForAbsent(photoPath, token);
         }
       } catch (error) { cleanupErrors.push(error); }
       try {

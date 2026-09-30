@@ -25,6 +25,14 @@ async function removeUploadedObject(path: string) {
   return error
 }
 
+// HEAD-based exists() can lose the JSON NoSuchKey body on an HTTP 400.
+// Only the precise missing-object error is a 409; permission/service errors still fail.
+function isMissingStorageObject(error: { code?: string; status?: number; statusCode?: string | number; message?: string }) {
+  const status = Number(error.status ?? error.statusCode)
+  return [400, 404].includes(status) && (error.code === 'NoSuchKey' ||
+    (!error.code && String(error.statusCode) === '404' && error.message === 'Object not found'))
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   try {
@@ -70,9 +78,10 @@ Deno.serve(async (req) => {
       return json({ error: 'product photo changed before this upload was linked' }, 409)
     }
 
-    const exists = await admin.storage.from('factory-photos').exists(storagePath)
-    if (exists.error) throw exists.error
-    if (!exists.data) return json({ error: 'uploaded photo object not found' }, 409)
+    const info = await admin.storage.from('factory-photos').info(storagePath)
+    if (info.error && !isMissingStorageObject(info.error)) throw info.error
+    if (info.error) return json({ error: 'uploaded photo object not found' }, 409)
+    if (!info.data) throw new Error('Storage returned no object metadata')
 
     let update = admin.from('products').update({ reference_photo_path: storagePath }).eq('id', id)
     update = previousPath ? update.eq('reference_photo_path', previousPath) : update.is('reference_photo_path', null)

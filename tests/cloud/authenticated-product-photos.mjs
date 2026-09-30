@@ -1,3 +1,4 @@
+import { createStorageProbe } from './storage-probe.mjs';
 import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -39,7 +40,7 @@ async function request(path, { method = 'GET', token, body, image = false } = {}
     ...(image ? { body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WlX4a4AAAAASUVORK5CYII=', 'base64') }
       : body ? { body: JSON.stringify(body) } : {}),
   });
-  const content = response.status === 200 && path.startsWith('/storage/v1/object/') && method === 'GET'
+  const content = response.status === 200 && path.startsWith('/storage/v1/object/') && !path.startsWith('/storage/v1/object/info/') && method === 'GET'
     ? null : await response.text();
   let data = null;
   try { data = content ? JSON.parse(content) : null; } catch { data = content; }
@@ -48,11 +49,7 @@ async function request(path, { method = 'GET', token, body, image = false } = {}
 }
 
 function objectUrl(path) { return `/storage/v1/object/${bucket}/${path}`; }
-async function isPresent(path, token) {
-  const result = await request(objectUrl(path), { token });
-  if (![200, 404].includes(result.status)) throw new Error(`photo inspection HTTP ${result.status}`);
-  return result.status === 200;
-}
+const { isPresent, waitForAbsent } = createStorageProbe(request, bucket);
 
 async function run() {
   requireTestEnvironment();
@@ -118,14 +115,14 @@ async function run() {
     await upload(second);
     const replaced = await attach(second, first);
     if (replaced.status !== 201 || replaced.data?.previous_cleanup_pending !== false ||
-        await currentPath() !== second || await isPresent(first, token) || !await isPresent(second, token)) {
+        await currentPath() !== second || !await waitForAbsent(first, token) || !await isPresent(second, token)) {
       throw new Error(`photo replacement/old photo cleanup mismatch: HTTP ${replaced.status}`);
     }
     passed++;
 
     await upload(rejected);
     const conflict = await attach(rejected, first); // Stale previous path: must clean this new object.
-    if (conflict.status !== 409 || await currentPath() !== second || await isPresent(rejected, token) ||
+    if (conflict.status !== 409 || await currentPath() !== second || !await waitForAbsent(rejected, token) ||
         !await isPresent(second, token)) {
       throw new Error(`stale photo link should fail and remove only new object: HTTP ${conflict.status}`);
     }
@@ -150,7 +147,7 @@ async function run() {
           const removed = await request(`/storage/v1/object/${bucket}`, {
             method: 'DELETE', token, body: { prefixes: [path] },
           });
-          if (removed.status !== 200 || await isPresent(path, token)) {
+          if (removed.status !== 200 || !await waitForAbsent(path, token)) {
             throw new Error(`test image cleanup not verified: ${path}`);
           }
         } catch (error) { cleanupErrors.push(error); }

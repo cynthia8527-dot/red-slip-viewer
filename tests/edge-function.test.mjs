@@ -31,11 +31,13 @@ function shipmentHandlerWithFakeDatabase(options = {}) {
       from(bucket) {
         assert.equal(bucket, 'factory-photos');
         return {
-          async exists(path) {
+          async info(path) {
             calls.storageExists.push(path);
             return options.storageExistsError
-              ? { data: null, error: { message: 'forced storage existence failure' } }
-              : { data: options.storageObjectExists !== false, error: null };
+              ? { data: null, error: options.storageExistsError }
+              : options.storageObjectExists === false
+                ? { data: null, error: { code: 'NoSuchKey', statusCode: '404', message: 'Object not found' } }
+                : { data: { name: path }, error: null };
           },
           async remove(paths) {
             calls.operations.push('storage-remove');
@@ -340,4 +342,26 @@ test('T012 grouped PATCH delegates group creation and update to one database cal
   assert.equal(calls.atomicUpdates[0].p_group_label, 'New group');
   assert.equal(calls.atomicUpdates[0].p_patch.location, '蘆洲');
   assert.equal(calls.intakeGroups, 0);
+});
+
+test('T021 missing-object JSON is a 409 while bucket, permission and service failures stay 500', async () => {
+  for (const [error, status] of [
+    [{ code: 'NoSuchKey', status: 400, statusCode: '404', message: 'Object not found' }, 409],
+    [{ statusCode: '404', message: 'Object not found' }, 409],
+    [{ code: 'NoSuchBucket', statusCode: '404', message: 'Bucket not found' }, 500],
+    [{ code: 'AccessDenied', statusCode: '403', message: 'Access denied' }, 500],
+    [{ statusCode: '400', message: 'Bad Request' }, 500],
+    [{ statusCode: '500', message: 'service failed' }, 500],
+    [{ code: 'NoSuchKey', status: 500, statusCode: '404', message: 'Object not found' }, 500],
+  ]) {
+    const { handler, calls } = shipmentHandlerWithFakeDatabase({ storageExistsError: error });
+    const response = await handler(new Request('https://offline.invalid/shipments', {
+      method: 'POST', headers: { Authorization: 'Bearer offline-test' },
+      body: JSON.stringify({ action: 'attach_photo', id: 'temporary-shipment', storage_path: 'shipments/temporary-shipment/missing.png' }),
+    }));
+    assert.equal(response.status, status, JSON.stringify(error));
+    if (status === 409) assert.equal((await response.json()).error, 'uploaded photo object not found');
+    assert.equal(calls.photoInserts.length, 0);
+    assert.deepEqual(calls.storageRemovals, []);
+  }
 });

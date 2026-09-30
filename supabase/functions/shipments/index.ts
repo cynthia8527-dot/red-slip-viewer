@@ -116,6 +116,14 @@ async function priceSnapshot(vendorId: unknown, vendorName: unknown, productId: 
   }
 }
 
+// HEAD-based exists() can lose the JSON NoSuchKey body on an HTTP 400.
+// Only the precise missing-object error is a 409; permission/service errors still fail.
+function isMissingStorageObject(error: { code?: string; status?: number; statusCode?: string | number; message?: string }) {
+  const status = Number(error.status ?? error.statusCode)
+  return [400, 404].includes(status) && (error.code === 'NoSuchKey' ||
+    (!error.code && String(error.statusCode) === '404' && error.message === 'Object not found'))
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   try {
@@ -152,9 +160,10 @@ Deno.serve(async (req) => {
           return json({ photo: firstLookup.data, replayed: true })
         }
 
-        const { data: objectExists, error: objectExistsErr } = await admin.storage.from('factory-photos').exists(storagePath)
-        if (objectExistsErr) throw objectExistsErr
-        if (!objectExists) return json({ error: 'uploaded photo object not found' }, 409)
+        const { data: objectInfo, error: objectInfoErr } = await admin.storage.from('factory-photos').info(storagePath)
+        if (objectInfoErr && !isMissingStorageObject(objectInfoErr)) throw objectInfoErr
+        if (objectInfoErr) return json({ error: 'uploaded photo object not found' }, 409)
+        if (!objectInfo) throw new Error('Storage returned no object metadata')
 
         const inserted = await admin.from('shipment_photos')
           .insert({ shipment_id: id, storage_path: storagePath })

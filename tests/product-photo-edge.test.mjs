@@ -27,7 +27,11 @@ function productPhotoHandler(options = {}) {
     storage: { from(bucket) {
       assert.equal(bucket, 'factory-photos');
       return {
-        async exists(path) { calls.exists.push(path); return { data: options.objectExists !== false, error: null }; },
+        async info(path) {
+          calls.exists.push(path);
+          return options.infoError ? { data: null, error: options.infoError }
+            : { data: { name: path }, error: null };
+        },
         async remove(paths) {
           calls.removals.push([...paths]); removeAttempts++;
           return options.removeError || (options.removeErrorOnce && removeAttempts === 1)
@@ -154,4 +158,23 @@ test('T032 non-admin cannot attach a product photo', async () => {
   assert.equal(response.status, 403);
   assert.equal(calls.updates.length, 0);
   assert.deepEqual(calls.removals, []);
+});
+
+test('T032 missing-object JSON is a 409 without linking or deleting; other Storage errors stay 500', async () => {
+  for (const [error, status] of [
+    [{ code: 'NoSuchKey', status: 400, statusCode: '404', message: 'Object not found' }, 409],
+    [{ statusCode: '404', message: 'Object not found' }, 409],
+    [{ code: 'NoSuchBucket', statusCode: '404', message: 'Bucket not found' }, 500],
+    [{ code: 'AccessDenied', statusCode: '403', message: 'Access denied' }, 500],
+    [{ statusCode: '400', message: 'Bad Request' }, 500],
+    [{ statusCode: '500', message: 'service failed' }, 500],
+    [{ code: 'NoSuchKey', status: 500, statusCode: '404', message: 'Object not found' }, 500],
+  ]) {
+    const { handler, calls, id } = productPhotoHandler({ infoError: error });
+    const response = await send(handler, id, `products/${id}/missing.png`);
+    assert.equal(response.status, status, JSON.stringify(error));
+    if (status === 409) assert.equal((await response.json()).error, 'uploaded photo object not found');
+    assert.equal(calls.updates.length, 0);
+    assert.deepEqual(calls.removals, []);
+  }
 });
