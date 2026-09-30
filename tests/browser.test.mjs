@@ -14,7 +14,7 @@ const candidates = [process.env.TEST_BROWSER_PATH,
 const browserPath = candidates.find(existsSync);
 const stubClient = `export function createClient(){return {auth:{getSession:async()=>({data:{session:null}})}}}`;
 
-test('T016/T017/T021 browser smoke: isolated pages and timeout retries', async () => {
+test('T016/T017/T021/T031 browser smoke: isolated pages and timeout retries', async () => {
   assert.ok(browserPath, 'No browser found; set TEST_BROWSER_PATH. Browser smoke is required, never skipped.');
   const server = createServer(async (request, response) => {
     const pathname = new URL(request.url, 'http://127.0.0.1').pathname;
@@ -153,6 +153,85 @@ test('T016/T017/T021 browser smoke: isolated pages and timeout retries', async (
       assert.equal(await createPage.locator('#cActive').innerText(), '1');
       assert.deepEqual(createErrors, []);
       await createContext.close();
+    }
+    // The RPC commits both records before its first response is lost.
+    // Exercise the real quick-product form with immediate and reload retries.
+    const adminClient = `export function createClient(){return {
+      auth:{getSession:async()=>({data:{session:{user:{id:'admin-a'},access_token:'offline-token'}}})},
+      from(table){const query={select:()=>query,eq:()=>query,
+        order:async()=>({data:await (await fetch('http://127.0.0.1:54321/rest/v1/'+table)).json(),error:null}),
+        maybeSingle:async()=>({data:{display_name:'測試管理員',role:'admin',active:true},error:null})};return query},
+      async rpc(name,body){try{return {data:await (await fetch('http://127.0.0.1:54321/rest/v1/rpc/'+name,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json(),error:null}}catch(error){return {data:null,error}}}
+    }}`;
+    for (const reloadBeforeRetry of [false, true]) {
+      const productContext = await browser.newContext();
+      const productErrors = [], productAlerts = [], productRequests = [];
+      const product = { id: 'product-retry', name: 'Test product', is_active: true, material: 'SK5', standard_process: '研磨' };
+      const rows = { vendors: [{ id: 'vendor-a', short_name: 'Test vendor', is_active: true }], products: [], vendor_prices: [] };
+      await productContext.route('**/*', route => {
+        const url = new URL(route.request().url());
+        if (url.hostname === 'esm.sh') return route.fulfill({ status: 200, contentType: 'text/javascript', headers: { 'access-control-allow-origin': '*' }, body: adminClient });
+        if (url.hostname === '127.0.0.1' && url.port === String(port)) return route.continue();
+        if (url.hostname === '127.0.0.1' && url.port === '54321') {
+          const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type', 'access-control-allow-methods': 'GET,POST,OPTIONS' };
+          if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers });
+          const reply = data => route.fulfill({ status: 200, contentType: 'application/json', headers, body: JSON.stringify(data) });
+          if (url.pathname === '/functions/v1/shipments' && route.request().method() === 'GET') return reply({ shipments: [] });
+          if (url.pathname === '/rest/v1/rpc/create_product_with_initial_price_idempotent' && route.request().method() === 'POST') {
+            productRequests.push(route.request().postDataJSON());
+            if (productRequests.length === 1) {
+              rows.products.push(product);
+              rows.vendor_prices.push({ id: 'price-retry', product_id: product.id, vendor_name: 'Test vendor', unit_price: 70, effective_date: '2000-01-01', unit: 'kg' });
+              return route.abort('failed');
+            }
+            assert.deepEqual(productRequests[1], productRequests[0]);
+            return reply({ product, replayed: true });
+          }
+          const table = url.pathname.replace('/rest/v1/', '');
+          if (route.request().method() === 'GET' && Object.hasOwn(rows, table)) return reply(rows[table]);
+        }
+        blocked.push(url.href);
+        return route.abort();
+      });
+      const productPage = await productContext.newPage();
+      productPage.on('pageerror', error => productErrors.push(error.message));
+      productPage.on('dialog', async dialog => { productAlerts.push(dialog.message()); await dialog.accept(); });
+      const fillProduct = async () => {
+        await productPage.locator('#fVendor').fill('Test vendor');
+        await productPage.locator('#quickProduct').click();
+        await productPage.locator('#qName').fill('Test product');
+        await productPage.locator('#qPrice').fill('70');
+        await productPage.locator('#qMaterial').fill('SK5');
+        await productPage.locator('#qProcess').fill('研磨');
+      };
+      await productPage.goto(boardUrl);
+      await productPage.locator('#appMain').waitFor({ state: 'visible' });
+      await productPage.locator('#toggleForm').click();
+      await fillProduct();
+      await productPage.locator('#qSave').click();
+      await productPage.waitForFunction(() => !document.querySelector('#quickModal').classList.contains('saving') && sessionStorage.getItem('factory-board:pending-quick-product-create'));
+      assert.match(productAlerts.join(' '), /建立商品失敗/);
+      const pending = await productPage.evaluate(() => JSON.parse(sessionStorage.getItem('factory-board:pending-quick-product-create')));
+      assert.equal(productRequests.length, 1);
+      assert.equal(productRequests[0].p_request_id, pending.key);
+      if (reloadBeforeRetry) {
+        await productPage.reload();
+        await productPage.locator('#appMain').waitFor({ state: 'visible' });
+        assert.equal(productRequests.length, 1, 'reload must not create another product');
+        await productPage.locator('#toggleForm').click();
+        await fillProduct();
+      }
+      await productPage.locator('#qSave').click();
+      await productPage.waitForFunction(() => document.querySelector('#syncText').textContent.includes('新商品已建立'));
+      assert.equal(productRequests.length, 2);
+      assert.deepEqual(productRequests[1], productRequests[0]);
+      assert.equal(rows.products.length, 1);
+      assert.equal(rows.vendor_prices.length, 1);
+      assert.equal(await productPage.locator('#fProduct').inputValue(), product.id);
+      assert.equal(await productPage.locator('#fProduct option[value="product-retry"]').count(), 1);
+      assert.equal(await productPage.evaluate(() => sessionStorage.getItem('factory-board:pending-quick-product-create')), null);
+      assert.deepEqual(productErrors, []);
+      await productContext.close();
     }
     assert.deepEqual(blocked, [], `Non-local request attempted: ${blocked.join(', ')}`);
     await context.close();
