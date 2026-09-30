@@ -6,7 +6,7 @@
 
 - 主環境專案 ID：`icqdmzndjmxffnlciijs`。只在 GitHub Pages 的既定主網域使用；主環境資料庫、`factory-photos` bucket 與備份完全不作測試目標。
 - 獨立雲端測試專案：`factory-board-test`，ID `zfcsuxihpakrsohvcwlr`；與主專案是兩個不同的 Supabase 專案。專用私人圖片桶 `factory-photos-test` 已建立，未複製主環境圖片。測試網頁只接受該專案或 `localhost`／`127.0.0.1`／`[::1]` 的 Supabase URL，且必須提供與主環境不同的 bucket。`config.local.js` 未提供時網頁直接失敗，不回退主環境。
-- 目前自動測試使用 `tests/fixtures/` 的合成資料、記憶體內 SQLite，以及只綁定回環位址的暫時網頁伺服器；每個資料測試重新建庫並在結束時關閉，瀏覽器測試結束時關閉瀏覽器與伺服器。沒有遠端資料、正式圖片、正式備份或雲端依賴。
+- 目前自動測試使用 `tests/fixtures/` 的合成資料、記憶體內 SQLite／PostgreSQL（PGlite），以及只綁定回環位址的暫時網頁伺服器；每個資料測試重新建庫並在結束時關閉，瀏覽器測試結束時關閉瀏覽器與伺服器。沒有遠端資料、正式圖片、正式備份或雲端依賴。
 - `tests/fixtures/schema.sql`、`legacy.sql`、`migration.sql` 仍是**合成契約夾具**。另已把主專案記錄的 17 筆 migration SQL 與 `shipments` Edge Function 原始碼取回存於 `tests/reference/`，只作唯讀參考，不自動部署。獨立測試專案已重播與業務表有關的歷史 SQL，排除備份排程及過時的公開讀取政策；缺失的叫車表及索引以 `tests/cloud/` 的現況重建 SQL 補足。依已確認的規則，測試專案另套用 `enforce_confirmed_data_contracts.sql` 的三項限制；主環境尚未套用。沒有複製主環境資料。
 - 離線完整測試的前置防呆仍拒絕非回環的 `TEST_SUPABASE_URL`、`SUPABASE_URL`、`DATABASE_URL`、`POSTGRES_URL`，也會拒絕任何資料頁直接寫入主專案 ID。瀏覽器 smoke 只允許本機請求，Supabase JS 載入由測試替身攔截；意外遠端請求會使測試失敗。雲端測試專案只供後續**獨立**整合測試使用，不會偷偷加入離線綠燈。
 - 測試專案內有獨立 `test_guard.project_identity`，每個可重跑的雲端 SQL 情境在寫入前先核對專案 ID；誤指到主專案會因缺少此標記而失敗。雲端測試只用合成資料，成功時自行刪除，失敗時單一 `DO` 敘述回滾。專用測試帳號保留 1 筆；最近兩次 `test:cloud` 後工作階段、群組、貨件、照片及測試圖片均為 0 筆。登入憑證僅在此電腦加密保存，且被 git 忽略。
@@ -70,3 +70,11 @@
 ## 維護規則
 
 純重構、效能優化、UI 排列調整：核心預期不改，測試應繼續通過。已確認業務規格正式變動：先更新本文件的相應情境及理由，再更新測試與實作；不可只為讓紅燈變綠而降低預期。schema 或 API 變動：新增版本化 migration 與舊資料相容測試。任何測試如果需要連遠端主 Supabase、主圖片 bucket、主備份或主雲端資料，應直接拒絕，而不是改成「暫時跳過」。
+
+## 2026-09-30 防重與版本化候選補充
+
+- T028 的空值邊界在本機 PostgreSQL 重現：舊 RPC／CHECK 接受 NULL fingerprint；補上明確非空檢查及交易包覆後，拒絕 NULL、空字串、長度錯誤及非十六進位值，且不留下群組／貨件。擴充 `T028.sql` 也在同一本機引擎執行，非真實 Supabase 整合。
+- T019 新增版本化欄位／限制候選的本機 PostgreSQL 演練：舊 ID 與 70 元快照保留、舊式更新、成對檢查／唯一性及中途 DDL 衝突整筆回滾。合成舊表不是完整 baseline；正式 RPC migration、RLS 及完整重播仍待完成。
+- 本輪測試專案 SQL 請求與唯讀連線探測均回連線逾時。新 T028 尚未在測試專案驗證，修正 SQL 也未部署；先前 SQL 通過紀錄僅代表先前版本。缺安全登入憑證另行保留，未執行案例不列 Passed 或 Skipped。主 Supabase 未接觸。
+
+- T031 另以 Chromium 固定台北時間，重現首次成功但回應遺失後跨午夜重送：原本自動生效日期及 UUID 都改變。草稿 `board/` 修正為相同表單的待確認請求沿用原日期及完整 body；修改單價仍產生新 UUID。`calculator/` 明確輸入的日期不改。修正前瀏覽器 0 Passed／1 Failed／0 Skipped，修正後通過；未部署主環境。

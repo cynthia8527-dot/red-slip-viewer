@@ -62,3 +62,13 @@
 主環境正式 migration 的前置檢查與未解決項見 `MAIN_MIGRATION_REVIEW.md`；這次沒有更動主環境。測試專案匿名登入維持關閉；T026／T027 的交易內假使用者 RLS 測試與已登入 Auth／Edge／Storage smoke 各自記錄。下一步是在原本保存憑證的 Windows 環境執行更新後的 `npm run test:cloud`，再依多步寫入盤點逐項處理；正式 migration 仍須另行審核。Google Drive 備份還原繼續延後。
 
 T031 離線瀏覽器補充：`tests/browser.test.mjs` 在本機攔截 RPC，先保存一筆合成商品與價格再丟失回應；分別驗證立即重送及重新整理、重填相同資料再送，`board/` 與 `calculator/` 兩入口的完整 RPC 參數（含 UUID）一致、待辦清除且畫面只有同一商品；calculator 詳細畫面保留廠商製程與價格備註。這不驗證真實資料庫或登入 API；完整離線指令最近為 **61 Passed／0 Failed／0 Skipped**，主 Supabase connections=0。
+
+## 2026-09-30 邊界修正與版本化候選
+
+`create_shipment_idempotent.sql` 補上 NULL fingerprint 明確拒絕、重建成對 CHECK 並把整份安裝包在交易內，避免限制更新失敗留下缺口。`T028.sql` 新增 NULL／空字串／錯長度／非十六進位拒絕和資料列缺半邊檢查。本機 PGlite 直接執行原 SQL 已驗證；測試專案本輪兩次 SQL 連線都逾時（情境請求及唯讀標記查詢），因此此版未部署、擴充雲端案例未驗證，不沿用舊版 Passed 宣稱新版通過。
+
+`supabase/migrations/20260930040920_add_idempotency_request_columns.sql` 是 CLI 產生的版本化欄位／限制候選，沒有測試 guard 或圖片桶，也不是從測試 SQL 整份複製。離線 PostgreSQL 演練驗證合成舊列與 DDL 失敗回滾；不含 RPC 或完整 baseline，不能直接部署。細節見 `../../supabase/migrations/README.md`。本輪缺安全登入憑證的 Auth／Edge／Storage 案例仍未執行，與資料庫連線逾時分開記錄。
+
+本輪完整離線結果：**66 Passed／0 Failed／0 Skipped**（含四項新增 PostgreSQL 演練、跨午夜請求行為測試與完整 Chromium 覆蓋）。首次本機 PostgreSQL 紅燈為 1 Passed／2 Failed／0 Skipped，明確重現 NULL fingerprint 漏洞；修正後通過。雲端 SQL 沒有成功結果，不能增加先前 14 個情境的通過數或把本機結果當成雲端 Passed。
+
+T031 跨午夜補充：Chromium 固定時間重現 `board/` 自動生效日期變更導致 UUID 改變，修正前 0 Passed／1 Failed／0 Skipped；草稿網頁現在相同內容重送保留原日期與完整 body，改單價則是新請求。`calculator/` 使用者明確輸入的日期維持原行為。主環境未發布。測試專案查到 INACTIVE 後已送出恢復要求，目前 COMING_UP，尚未取得新 SQL 結果。

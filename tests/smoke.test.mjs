@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
+import { randomUUID } from 'node:crypto';
 
 test('T014 all data pages load shared environment config', () => {
   for (const page of ['board', 'calculator', 'dispatch', 'vendors']) {
@@ -55,6 +57,25 @@ test('T017 shipment create keeps one request key across an uncertain retry', () 
   assert.match(board, /sessionStorage\.setItem\(PENDING_SHIPMENT_CREATE/);
   assert.match(board, /'Idempotency-Key':request\.key/);
   assert.match(board, /clearShipmentCreateRequest\(request\.key\)/);
+});
+
+test('T031 implicit-date retry survives reload while changed price creates a new request', () => {
+  const html = readFileSync(new URL('../board/index.html', import.meta.url), 'utf8');
+  const handler = html.split('function quickProductCreateRequest(body){')[1]?.split('function clearQuickProductCreateRequest')[0];
+  assert.ok(handler, 'quick product request helper is missing');
+  const saved = new Map();
+  const sessionStorage = { getItem: key => saved.get(key) ?? null, setItem: (key, value) => saved.set(key, value) };
+  const reload = () => runInNewContext(`let pendingQuickProductCreate=null;const PENDING_QUICK_PRODUCT_CREATE='pending';function quickProductCreateRequest(body){${handler};quickProductCreateRequest`, { sessionStorage, crypto: { randomUUID } });
+  const original = { p_name: 'Synthetic product', p_vendor_name: 'Synthetic vendor', p_unit_price: 70, p_effective_date: '2026-09-30' };
+  const first = reload()(original);
+  const requestAfterReload = reload();
+  const retry = requestAfterReload({ ...original, p_effective_date: '2026-10-01' });
+  assert.equal(retry.key, first.key);
+  assert.equal(retry.body, first.body);
+  const changed = requestAfterReload({ ...original, p_unit_price: 71, p_effective_date: '2026-10-01' });
+  assert.notEqual(changed.key, first.key);
+  assert.equal(JSON.parse(changed.body).p_unit_price, 71);
+  assert.equal(JSON.parse(changed.body).p_effective_date, '2026-10-01');
 });
 
 test('T021 shipment success is not reported as a failed create when photo upload fails', () => {

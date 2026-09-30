@@ -9,9 +9,26 @@ declare
   retry_result jsonb;
   first_id uuid;
   mismatch_rejected boolean := false;
+  invalid_fingerprint text;
 begin
   perform 1 from test_guard.project_identity where project_ref = expected_project;
   if not found then raise exception 'T028 unsafe project'; end if;
+
+  foreach invalid_fingerprint in array array[null::text, '', repeat('a', 63), repeat('G', 64)] loop
+    begin
+      perform public.create_shipment_idempotent(
+        jsonb_build_object('vendor_name', v_vendor_name, 'item_name', 'Invalid fingerprint',
+          'location', '蘆洲', 'status', '未開始', 'urgent', false, 'cannot_mix', false, 'is_demo', false),
+        v_group_label, current_date, gen_random_uuid(), invalid_fingerprint
+      );
+      raise exception 'T028 invalid fingerprint was accepted: %', coalesce(invalid_fingerprint, 'NULL');
+    exception when sqlstate '22023' then null;
+    end;
+  end loop;
+  if exists (select 1 from public.shipments where vendor_name = v_vendor_name)
+      or exists (select 1 from public.intake_groups where vendor_name = v_vendor_name) then
+    raise exception 'T028 rejected request left partial data';
+  end if;
 
   first_result := public.create_shipment_idempotent(
     jsonb_build_object(
@@ -45,6 +62,11 @@ begin
   );
 
   first_id := (first_result #>> '{shipment,id}')::uuid;
+  begin
+    update public.shipments set create_request_fingerprint = null where id = first_id;
+    raise exception 'T028 request ID without fingerprint was accepted';
+  exception when check_violation then null;
+  end;
   if coalesce((first_result ->> 'replayed')::boolean, true) then
     raise exception 'T028 first request was incorrectly marked as replayed';
   end if;

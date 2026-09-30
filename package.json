@@ -13,6 +13,7 @@
     "node": ">=22.13.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "playwright-core": "1.62.1"
   }
 }

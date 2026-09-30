@@ -1,4 +1,5 @@
 -- Test-project-only trial. This is not an approved main-environment migration.
+begin;
 do $guard$
 begin
   perform 1 from test_guard.project_identity
@@ -14,21 +15,14 @@ alter table public.shipments
   add column if not exists create_request_id uuid,
   add column if not exists create_request_fingerprint text;
 
-do $constraints$
-begin
-  if not exists (
-    select 1 from pg_constraint
-    where conrelid = 'public.shipments'::regclass
-      and conname = 'shipments_create_request_pair_check'
-  ) then
-    alter table public.shipments add constraint shipments_create_request_pair_check check (
+alter table public.shipments
+  drop constraint if exists shipments_create_request_pair_check;
+alter table public.shipments add constraint shipments_create_request_pair_check check (
       (create_request_id is null and create_request_fingerprint is null)
       or
-      (create_request_id is not null and create_request_fingerprint ~ '^[0-9a-f]{64}$')
+      (create_request_id is not null and create_request_fingerprint is not null
+        and create_request_fingerprint ~ '^[0-9a-f]{64}$')
     );
-  end if;
-end
-$constraints$;
 
 create unique index if not exists shipments_create_request_id_uidx
   on public.shipments (create_request_id)
@@ -52,7 +46,7 @@ declare
   v_group_id uuid;
   v_group jsonb;
 begin
-  if p_request_id is null or p_request_fingerprint !~ '^[0-9a-f]{64}$' then
+  if p_request_id is null or p_request_fingerprint is null or p_request_fingerprint !~ '^[0-9a-f]{64}$' then
     raise exception using errcode = '22023', message = 'A valid request ID and fingerprint are required';
   end if;
 
@@ -125,3 +119,4 @@ $function$;
 
 revoke all on function public.create_shipment_idempotent(jsonb, text, date, uuid, text) from public, anon, authenticated;
 grant execute on function public.create_shipment_idempotent(jsonb, text, date, uuid, text) to service_role;
+commit;
