@@ -9,6 +9,8 @@ import { manifest, verifyManifest } from './replay.mjs';
 import { rehearse, upgrade } from '../upgrade/rehearsal.mjs';
 import { exerciseWorkflow } from '../upgrade/workflow.mjs';
 import { runVolume } from '../volume/workload.mjs';
+import { runRecovery } from '../recovery/rehearsal.mjs';
+const recoveryMode=process.argv.includes('--recovery');
 const volumeMode=process.argv.includes('--volume');
 const upgradeMode=process.argv.includes('--upgrade');
 const root = new URL('../../', import.meta.url);
@@ -108,6 +110,7 @@ try {
     for(const command of ['pg_dump','pg_restore']) console.log('RECOVERY TOOL '+run('docker',['exec',container,command,'--version']).trim());
     await runVolume({api,sql,status,token,session:login});
   }
+  if(recoveryMode) await runRecovery({api,sql,token,container,accountId:account.id});
   await api('/auth/v1/logout?scope=global',{token,method:'POST'});
   await api('/auth/v1/admin/users/'+account.id,{method:'DELETE'});
   const tables = sql("select quote_ident(schemaname)||'.'||quote_ident(tablename) from pg_tables where schemaname in ('public','private') order by 1;").trim().split('\n');
