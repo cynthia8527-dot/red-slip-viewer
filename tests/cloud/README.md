@@ -61,4 +61,4 @@
 
 主環境正式 migration 的前置檢查與未解決項見 `MAIN_MIGRATION_REVIEW.md`；這次沒有更動主環境。測試專案匿名登入維持關閉；T026／T027 的交易內假使用者 RLS 測試與已登入 Auth／Edge／Storage smoke 各自記錄。下一步是在原本保存憑證的 Windows 環境執行更新後的 `npm run test:cloud`，再依多步寫入盤點逐項處理；正式 migration 仍須另行審核。Google Drive 備份還原繼續延後。
 
-T031 離線瀏覽器補充：`tests/browser.test.mjs` 在本機攔截 RPC，先保存一筆合成商品與價格再丟失回應；分別驗證立即重送及重新整理、重填相同資料再送，完整 RPC 參數（含 UUID）一致、待辦清除且網頁選回同一商品。這不驗證真實資料庫或登入 API；完整離線指令最近為 **61 Passed／0 Failed／0 Skipped**，主 Supabase connections=0。
+T031 離線瀏覽器補充：`tests/browser.test.mjs` 在本機攔截 RPC，先保存一筆合成商品與價格再丟失回應；分別驗證立即重送及重新整理、重填相同資料再送，`board/` 與 `calculator/` 兩入口的完整 RPC 參數（含 UUID）一致、待辦清除且畫面只有同一商品；calculator 詳細畫面保留廠商製程與價格備註。這不驗證真實資料庫或登入 API；完整離線指令最近為 **61 Passed／0 Failed／0 Skipped**，主 Supabase connections=0。

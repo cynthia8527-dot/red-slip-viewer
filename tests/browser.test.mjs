@@ -163,7 +163,7 @@ test('T016/T017/T021/T031 browser smoke: isolated pages and timeout retries', as
         maybeSingle:async()=>({data:{display_name:'測試管理員',role:'admin',active:true},error:null})};return query},
       async rpc(name,body){try{return {data:await (await fetch('http://127.0.0.1:54321/rest/v1/rpc/'+name,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json(),error:null}}catch(error){return {data:null,error}}}
     }}`;
-    for (const reloadBeforeRetry of [false, true]) {
+    for (const [pageName, reloadBeforeRetry] of [['board', false], ['board', true], ['calculator', false], ['calculator', true]]) {
       const productContext = await browser.newContext();
       const productErrors = [], productAlerts = [], productRequests = [];
       const product = { id: 'product-retry', name: 'Test product', is_active: true, material: 'SK5', standard_process: '研磨' };
@@ -181,7 +181,8 @@ test('T016/T017/T021/T031 browser smoke: isolated pages and timeout retries', as
             productRequests.push(route.request().postDataJSON());
             if (productRequests.length === 1) {
               rows.products.push(product);
-              rows.vendor_prices.push({ id: 'price-retry', product_id: product.id, vendor_name: 'Test vendor', unit_price: 70, effective_date: '2000-01-01', unit: 'kg' });
+              const body = productRequests[0];
+              rows.vendor_prices.push({ id: 'price-retry', product_id: product.id, vendor_id: body.p_vendor_id, vendor_name: body.p_vendor_name, unit_price: body.p_unit_price, effective_date: body.p_effective_date, unit: body.p_unit, process_name: body.p_vendor_process, note: body.p_price_note });
               return route.abort('failed');
             }
             assert.deepEqual(productRequests[1], productRequests[0]);
@@ -196,7 +197,21 @@ test('T016/T017/T021/T031 browser smoke: isolated pages and timeout retries', as
       const productPage = await productContext.newPage();
       productPage.on('pageerror', error => productErrors.push(error.message));
       productPage.on('dialog', async dialog => { productAlerts.push(dialog.message()); await dialog.accept(); });
+      const pendingKey = pageName === 'board' ? 'factory-board:pending-quick-product-create' : 'factory-calculator:pending-product-create';
+      const saveButton = pageName === 'board' ? '#qSave' : '#saveProduct';
       const fillProduct = async () => {
+        if (pageName === 'calculator') {
+          await productPage.locator('[data-vendor-id="vendor-a"]').click();
+          await productPage.locator('#newProduct').click();
+          await productPage.locator('#pName').fill('Test product');
+          await productPage.locator('#npPrice').fill('70');
+          await productPage.locator('#pMaterial').fill('SK5');
+          await productPage.locator('#pProcess').fill('研磨');
+          await productPage.locator('#npVendorProcess').fill('廠商指定研亮');
+          await productPage.locator('#npPriceNote').fill('測試價格備註');
+          await productPage.locator('#npDate').fill('2000-01-01');
+          return;
+        }
         await productPage.locator('#fVendor').fill('Test vendor');
         await productPage.locator('#quickProduct').click();
         await productPage.locator('#qName').fill('Test product');
@@ -204,32 +219,42 @@ test('T016/T017/T021/T031 browser smoke: isolated pages and timeout retries', as
         await productPage.locator('#qMaterial').fill('SK5');
         await productPage.locator('#qProcess').fill('研磨');
       };
-      await productPage.goto(boardUrl);
-      await productPage.locator('#appMain').waitFor({ state: 'visible' });
-      await productPage.locator('#toggleForm').click();
+      await productPage.goto(`http://127.0.0.1:${port}/${pageName}/index.html`);
+      await productPage.locator(pageName === 'board' ? '#appMain' : '#app').waitFor({ state: 'visible' });
+      if (pageName === 'board') await productPage.locator('#toggleForm').click();
       await fillProduct();
-      await productPage.locator('#qSave').click();
-      await productPage.waitForFunction(() => !document.querySelector('#quickModal').classList.contains('saving') && sessionStorage.getItem('factory-board:pending-quick-product-create'));
-      assert.match(productAlerts.join(' '), /建立商品失敗/);
-      const pending = await productPage.evaluate(() => JSON.parse(sessionStorage.getItem('factory-board:pending-quick-product-create')));
+      await productPage.locator(saveButton).click();
+      await productPage.waitForFunction(({ pageName, pendingKey }) => (pageName === 'board' ? !document.querySelector('#quickModal').classList.contains('saving') : !document.querySelector('#saveProduct').disabled) && sessionStorage.getItem(pendingKey), { pageName, pendingKey });
+      assert.match(productAlerts.join(' '), pageName === 'board' ? /建立商品失敗/ : /儲存失敗/);
+      const pending = await productPage.evaluate(key => JSON.parse(sessionStorage.getItem(key)), pendingKey);
       assert.equal(productRequests.length, 1);
       assert.equal(productRequests[0].p_request_id, pending.key);
       if (reloadBeforeRetry) {
         await productPage.reload();
-        await productPage.locator('#appMain').waitFor({ state: 'visible' });
+        await productPage.locator(pageName === 'board' ? '#appMain' : '#app').waitFor({ state: 'visible' });
         assert.equal(productRequests.length, 1, 'reload must not create another product');
-        await productPage.locator('#toggleForm').click();
+        if (pageName === 'board') await productPage.locator('#toggleForm').click();
         await fillProduct();
       }
-      await productPage.locator('#qSave').click();
-      await productPage.waitForFunction(() => document.querySelector('#syncText').textContent.includes('新商品已建立'));
+      await productPage.locator(saveButton).click();
+      if (pageName === 'board') await productPage.waitForFunction(() => document.querySelector('#syncText').textContent.includes('新商品已建立'));
+      else await productPage.locator('#grid .card').waitFor();
       assert.equal(productRequests.length, 2);
       assert.deepEqual(productRequests[1], productRequests[0]);
       assert.equal(rows.products.length, 1);
       assert.equal(rows.vendor_prices.length, 1);
-      assert.equal(await productPage.locator('#fProduct').inputValue(), product.id);
-      assert.equal(await productPage.locator('#fProduct option[value="product-retry"]').count(), 1);
-      assert.equal(await productPage.evaluate(() => sessionStorage.getItem('factory-board:pending-quick-product-create')), null);
+      if (pageName === 'board') {
+        assert.equal(await productPage.locator('#fProduct').inputValue(), product.id);
+        assert.equal(await productPage.locator('#fProduct option[value="product-retry"]').count(), 1);
+      } else {
+        assert.equal(productRequests[0].p_vendor_process, '廠商指定研亮');
+        assert.equal(productRequests[0].p_price_note, '測試價格備註');
+        assert.equal(await productPage.locator('#grid .card').count(), 1);
+        await productPage.getByRole('button', { name: '詳細', exact: true }).click();
+        assert.equal(await productPage.locator('#dVendorProcess').innerText(), '廠商指定研亮');
+        assert.equal(await productPage.locator('#dPriceNote').innerText(), '測試價格備註');
+      }
+      assert.equal(await productPage.evaluate(key => sessionStorage.getItem(key), pendingKey), null);
       assert.deepEqual(productErrors, []);
       await productContext.close();
     }
