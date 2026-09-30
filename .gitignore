@@ -3,3 +3,4 @@ tests/cloud/credentials.local.json
 tests/tmp/
 node_modules/
 supabase/.temp/
+database/rebuild/supabase/.temp/

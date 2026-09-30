@@ -1,0 +1,151 @@
+{
+  "format": 1,
+  "kind": "reconstructed-business-schema-candidate",
+  "created": "2026-09-30",
+  "base_commit": "470d8fe937da95eb5349dfbcb9ec2979c77477cd",
+  "excluded_historical": [
+    "20260916155248_allow_public_read_test_catalog.sql",
+    "20260919102350_add_automatic_text_backup_schedule.sql",
+    "20260919105116_enable_pg_net_for_backup_seed.sql",
+    "20260919120746_remove_unused_pg_net.sql"
+  ],
+  "migrations": [
+    {
+      "file": "supabase/migrations/20260930075150_reconstructed_business_baseline.sql",
+      "sha256": "5e1545a59d18341b4c97150d391fb2c5d120936ea8ad0ff5c0e7d4d956e154aa",
+      "sources": [
+        {
+          "path": "tests/reference/main-migrations/20260916154654_create_factory_core_tables.sql",
+          "sha256": "0581ffa9b0689bbecf8742d6240387c203005f7aa25667e5ae1cd9b634e21dda",
+          "mode": "verbatim"
+        },
+        {
+          "path": "tests/reference/main-migrations/20260916160324_add_demo_flag_to_shipments.sql",
+          "sha256": "1a59ad3eb65d86aad1ef45811f0d00fd3020fff77f1f63b20616d593d5739e77",
+          "mode": "verbatim"
+        },
+        {
+          "path": "tests/reference/main-migrations/20260917020847_add_intake_groups_and_batch_controls.sql",
+          "sha256": "996d1a7ec6596d175133898665de8e2a7c79fa8f9b009669df8b7cf494aaf6b5",
+          "mode": "verbatim"
+        },
+        {
+          "path": "tests/reference/main-migrations/20260917022940_add_factory_auth_roles_and_rls.sql",
+          "sha256": "fe1a59c970465883e705e58db81298f9a95b8d5bb3e8e8b93ca990e779225f6d",
+          "mode": "verbatim"
+        },
+        {
+          "path": "tests/reference/main-migrations/20260917054455_secure_catalog_admin_and_product_photos.sql",
+          "sha256": "fb1e58aedaeefb0381d3854af3cee414c63290d78099340fc3b976326cb4538b",
+          "mode": "verbatim"
+        },
+        {
+          "path": "tests/reference/main-migrations/20260917110322_allow_staff_shipment_photo_uploads.sql",
+          "sha256": "5b4146fd0dcbeb3e1c19e2f2a483aace825659190f6d9193fadcb85bb09fe691",
+          "mode": "verbatim"
+        },
+        {
+          "path": "tests/reference/main-migrations/20260918065232_add_vendor_minimum_charge.sql",
+          "sha256": "fdc148dacbc27577a0e81e7b1fd64e6b3dc2fa9302132d6cb9b09189b8526e9f",
+          "mode": "verbatim"
+        },
+        {
+          "path": "tests/reference/main-migrations/20260918065939_add_shipment_void_fields.sql",
+          "sha256": "d12ec75aefcc7742f7ffb15d9a44da26e994431dff8ab99a6de525876ae37ff8",
+          "mode": "verbatim"
+        },
+        {
+          "path": "tests/reference/main-migrations/20260918070559_add_shipment_price_snapshots.sql",
+          "sha256": "58ccf020575fbfa033e25426e02785cca732e9151bf53badea2a44404f0febe2",
+          "mode": "verbatim"
+        },
+        {
+          "path": "tests/reference/main-migrations/20260918074939_create_vendors_and_sites.sql",
+          "sha256": "9375148043e2d84b271c789724d7b1fb4f9012519f54fd4d5d77d98856a4d5fd",
+          "mode": "verbatim"
+        },
+        {
+          "path": "tests/reference/main-migrations/20260918101353_link_vendors_to_prices_and_shipments.sql",
+          "sha256": "ada584fe86089269409fe487e6aa91d60228517ee73f83531f5e9a3a8e077e4e",
+          "mode": "verbatim"
+        },
+        {
+          "path": "tests/reference/main-migrations/20260920081130_add_vendor_price_history.sql",
+          "sha256": "5173682dc7e72c2b2681c4cdb1073b11d61bcca69e845526e968dcfddc4afdf9",
+          "mode": "verbatim"
+        },
+        {
+          "path": "tests/reference/main-migrations/20260920081452_secure_vendor_price_history_rpc.sql",
+          "sha256": "b7bcffe5b86d99988ab2ca32edfd51d16e8ae001b98978c0ac354ac949752a9e",
+          "mode": "verbatim"
+        },
+        {
+          "path": "tests/cloud/observed_dispatch_locations.sql",
+          "sha256": "5857d82506716db64111dd2c9235b0707c7c9968d55b3baf34f8c8c44c9ffd21",
+          "mode": "observed-ddl"
+        },
+        {
+          "path": "tests/cloud/observed_shipments_voided_by_index.sql",
+          "sha256": "546b7d7f35bfce746bf9017a1625f1a44e587e35c5868778895562a2d7e65a34",
+          "mode": "observed-ddl"
+        }
+      ]
+    },
+    {
+      "file": "supabase/migrations/20260930075151_request_columns.sql",
+      "sha256": "0bbd3e07e29d843c1c1566676c04f4ea987a60128675e53c17f61f639aa1e990",
+      "sources": [
+        {
+          "path": "supabase/migrations/20260930040920_add_idempotency_request_columns.sql",
+          "sha256": "7402bdff1e4decb3a5e4fd9884bfa6518236a9e15a1a251a623fb71209853a53",
+          "mode": "verbatim"
+        }
+      ]
+    },
+    {
+      "file": "supabase/migrations/20260930075152_business_contracts_and_rpcs.sql",
+      "sha256": "fb0a9baa4c77de751072e08494be86938219b4debc02145a213144220e4f041e",
+      "sources": [
+        {
+          "path": "tests/cloud/enforce_confirmed_data_contracts.sql",
+          "sha256": "5e9738354b25ddd457e541bb6a744d9130b9951bdda9836d2913838d633e0a3f",
+          "mode": "after-test-guard"
+        },
+        {
+          "path": "tests/cloud/create_shipment_atomic.sql",
+          "sha256": "aa0e6ad9b37c8f89a7eec72bc755264dfeefe6e9f1ce453d223338541d5f80c9",
+          "mode": "rpc-only"
+        },
+        {
+          "path": "tests/cloud/update_shipment_atomic.sql",
+          "sha256": "16acde4a010444b4a5f77d15d5f11b845b41a4bfaa69196e1b5a60654026daf7",
+          "mode": "rpc-only"
+        },
+        {
+          "path": "tests/cloud/create_shipment_idempotent.sql",
+          "sha256": "8767bb9820903e8ce30d1ec43078816e330c74eacecf12d5e2d6b5ba5a0c2223",
+          "mode": "rpc-only"
+        },
+        {
+          "path": "tests/cloud/create_product_with_initial_price.sql",
+          "sha256": "587c637dd0204c46b8555c8416f3e2d4cf83c28580663f41b4bda050e0120e2a",
+          "mode": "rpc-only"
+        },
+        {
+          "path": "tests/cloud/create_product_with_initial_price_idempotent.sql",
+          "sha256": "550308b12c2572b8cc853be598429bc2e612b76b7cfc263677e4e1f21b18cc2e",
+          "mode": "rpc-only"
+        },
+        {
+          "path": "tests/cloud/delete_shipment_with_cleanup_job.sql",
+          "sha256": "61ecbdd715f5d87b81e6111a98ec8f4607c080d1f3fb1a880071f54a368704a9",
+          "mode": "after-test-guard"
+        }
+      ]
+    }
+  ],
+  "explicit_dependencies": [
+    "Supabase auth/storage roles and interfaces",
+    "pgcrypto installed in extensions; used by quick-create RPC extensions.digest(bytea,text)"
+  ]
+}

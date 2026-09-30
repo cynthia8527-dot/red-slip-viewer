@@ -13,3 +13,5 @@ npm run test
 已登入雲端回歸測試需明確另外執行 `npm run test:cloud`。它的端點固定為獨立測試專案，不讀主環境 URL；此電腦使用 git 忽略且由 Windows 使用者加密的 `tests/cloud/credentials.local.json`。若沒有測試專用憑證，指令會**失敗而非跳過**。雲端指令不會加入 GitHub Actions 或離線 `npm run test` 的綠燈，測後只保留使用者同意的專用測試帳號，不保留測試貨件與圖片。
 
 GitHub 每次推送、提出合併請求或手動啟動時，也會執行 `.github/workflows/offline-tests.yml`。該工作流程只有唯讀的倉庫權限，不傳入 Supabase／雲端憑證；綠燈表示離線回歸測試通過，**不**代表真實資料庫整合測試已完成。`npm run test` 仍明確拒絕遠端 Supabase 環境變數，避免把離線測試誤當雲端整合測試。
+
+空庫業務重建回歸：`npm run test:rebuild`，也包含在完整 `npm run test`。來源、順序、平台介面替身與 Docker 阻礙詳見 [重建候選說明](../database/rebuild/README.md)。歷史 migration inventory 仍保留退出碼 2，不因有後補候選就改寫歷史完整性。
