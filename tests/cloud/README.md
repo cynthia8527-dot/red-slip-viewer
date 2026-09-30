@@ -65,10 +65,12 @@ T031 離線瀏覽器補充：`tests/browser.test.mjs` 在本機攔截 RPC，先�
 
 ## 2026-09-30 邊界修正與版本化候選
 
-`create_shipment_idempotent.sql` 補上 NULL fingerprint 明確拒絕、重建成對 CHECK 並把整份安裝包在交易內，避免限制更新失敗留下缺口。`T028.sql` 新增 NULL／空字串／錯長度／非十六進位拒絕和資料列缺半邊檢查。本機 PGlite 直接執行原 SQL 已驗證；測試專案本輪兩次 SQL 連線都逾時（情境請求及唯讀標記查詢），因此此版未部署、擴充雲端案例未驗證，不沿用舊版 Passed 宣稱新版通過。
+`create_shipment_idempotent.sql` 補上 NULL fingerprint 明確拒絕、重建成對 CHECK 並把整份安裝包在交易內，避免限制更新失敗留下缺口。`T028.sql` 新增 NULL／空字串／錯長度／非十六進位拒絕和資料列缺半邊檢查。本機 PGlite 直接執行原 SQL 已驗證；測試專案原為 INACTIVE，初始兩次 SQL 連線逾時；恢復為 ACTIVE_HEALTHY 後在真實測試資料庫重現漏洞，再只對測試專案安裝修正，T028 連跑兩次通過。隨後本輪實際重跑全部 14 個 SQL 情境，14 Passed／0 Failed／0 Skipped。
 
 `supabase/migrations/20260930040920_add_idempotency_request_columns.sql` 是 CLI 產生的版本化欄位／限制候選，沒有測試 guard 或圖片桶，也不是從測試 SQL 整份複製。離線 PostgreSQL 演練驗證合成舊列與 DDL 失敗回滾；不含 RPC 或完整 baseline，不能直接部署。細節見 `../../supabase/migrations/README.md`。本輪缺安全登入憑證的 Auth／Edge／Storage 案例仍未執行，與資料庫連線逾時分開記錄。
 
-本輪完整離線結果：**66 Passed／0 Failed／0 Skipped**（含四項新增 PostgreSQL 演練、跨午夜請求行為測試與完整 Chromium 覆蓋）。首次本機 PostgreSQL 紅燈為 1 Passed／2 Failed／0 Skipped，明確重現 NULL fingerprint 漏洞；修正後通過。雲端 SQL 沒有成功結果，不能增加先前 14 個情境的通過數或把本機結果當成雲端 Passed。
+本輪完整離線結果：**66 Passed／0 Failed／0 Skipped**（含四項新增 PostgreSQL 演練、跨午夜請求行為測試與完整 Chromium 覆蓋）。首次本機 PostgreSQL 紅燈為 1 Passed／2 Failed／0 Skipped，明確重現 NULL fingerprint 漏洞；修正後通過。雲端完整 SQL 重跑另計 14 Passed／0 Failed／0 Skipped；沒有新增情境數，也不把本機結果混入雲端計數。
 
-T031 跨午夜補充：Chromium 固定時間重現 `board/` 自動生效日期變更導致 UUID 改變，修正前 0 Passed／1 Failed／0 Skipped；草稿網頁現在相同內容重送保留原日期與完整 body，改單價則是新請求。`calculator/` 使用者明確輸入的日期維持原行為。主環境未發布。測試專案查到 INACTIVE 後已送出恢復要求，目前 COMING_UP，尚未取得新 SQL 結果。
+T031 跨午夜補充：Chromium 固定時間重現 `board/` 自動生效日期變更導致 UUID 改變，修正前 0 Passed／1 Failed／0 Skipped；草稿網頁現在相同內容重送保留原日期與完整 body，改單價則是新請求。`calculator/` 使用者明確輸入的日期維持原行為。主環境未發布。測試專案已恢復為 ACTIVE_HEALTHY，新 SQL 驗證與完整重跑已完成。
+
+本輪測後全表核對貨件、群組、商品、價格、照片、私有清理工作均為 0，交易內測試帳號與 Auth 工作階段亦為 0；專用 DPAPI 登入帳號保留。RPC 回讀確認 security invoker、匿名／一般登入者不可執行、只有 service_role 可執行。完整紅燈／修正／重跑紀錄見 `VALIDATION_2026-09-30.md`。

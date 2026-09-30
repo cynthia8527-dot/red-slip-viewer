@@ -75,6 +75,6 @@
 
 - T028 的空值邊界在本機 PostgreSQL 重現：舊 RPC／CHECK 接受 NULL fingerprint；補上明確非空檢查及交易包覆後，拒絕 NULL、空字串、長度錯誤及非十六進位值，且不留下群組／貨件。擴充 `T028.sql` 也在同一本機引擎執行，非真實 Supabase 整合。
 - T019 新增版本化欄位／限制候選的本機 PostgreSQL 演練：舊 ID 與 70 元快照保留、舊式更新、成對檢查／唯一性及中途 DDL 衝突整筆回滾。合成舊表不是完整 baseline；正式 RPC migration、RLS 及完整重播仍待完成。
-- 本輪測試專案 SQL 請求與唯讀連線探測均回連線逾時。新 T028 尚未在測試專案驗證，修正 SQL 也未部署；先前 SQL 通過紀錄僅代表先前版本。缺安全登入憑證另行保留，未執行案例不列 Passed 或 Skipped。主 Supabase 未接觸。
+- 測試專案原為 INACTIVE，先前兩次 SQL 連線逾時；恢復至 ACTIVE_HEALTHY 後，新 T028 在雲端也重現 NULL 漏洞（0 Passed／1 Failed／0 Skipped），交易回滾。修正 SQL 已只在測試專案安裝，T028 連跑兩次通過，再實際重跑全部 14 個 SQL 情境為 14 Passed／0 Failed／0 Skipped。測後貨件、群組、商品、價格、照片、私有清理工作、交易內測試帳號與工作階段均為 0。缺安全登入憑證另行保留，Auth／Edge／Storage 案例未執行，不列 Passed 或 Skipped。主 Supabase 未接觸；完整紀錄見 `tests/cloud/VALIDATION_2026-09-30.md`。
 
 - T031 另以 Chromium 固定台北時間，重現首次成功但回應遺失後跨午夜重送：原本自動生效日期及 UUID 都改變。草稿 `board/` 修正為相同表單的待確認請求沿用原日期及完整 body；修改單價仍產生新 UUID。`calculator/` 明確輸入的日期不改。修正前瀏覽器 0 Passed／1 Failed／0 Skipped，修正後通過；未部署主環境。
