@@ -131,9 +131,28 @@ Deno.serve(async (req) => {
     if (!actor) return json({ error: 'Unauthorized' }, 401)
 
     if (req.method === 'GET') {
-      const { data, error } = await admin.from('shipments').select('*, intake_groups(id,label,received_date)').eq('is_demo', false).order('created_at', { ascending: true })
-      if (error) throw error
-      return json({ shipments: data ?? [] })
+      // Keyset pagination prevents a server row cap from silently hiding older/newer records.
+      // UUID ordering avoids offset shifts when a preceding row is deleted.
+      const shipments: any[] = []
+      let cursor = ''
+      for (let page = 0; page < 400; page++) {
+        let query = admin.from('shipments').select('*, intake_groups(id,label,received_date)')
+          .eq('is_demo', false).order('id', { ascending: true }).limit(500)
+        if (cursor) query = query.gt('id', cursor)
+        const { data, error } = await query
+        if (error) throw error
+        if (!Array.isArray(data)) throw new Error('Invalid shipment list response')
+        if (data.length === 0) {
+          shipments.sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)) || a.id.localeCompare(b.id))
+          return json({ shipments })
+        }
+        for (const row of data) {
+          if (typeof row.id !== 'string' || row.id <= cursor) throw new Error('Shipment pagination did not advance')
+          cursor = row.id
+          shipments.push(row)
+        }
+      }
+      throw new Error('Shipment list exceeds complete-read limit; no partial result returned')
     }
 
     const body = await req.json().catch(() => ({}))

@@ -7,7 +7,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: [fresh, upgrade]
+        mode: [fresh, upgrade, volume]
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -28,4 +28,4 @@ jobs:
       - name: Full platform replay and integration checks
         env:
           REBUILD_CLI: ${{ runner.temp }}/rebuild-cli/node_modules/.bin/supabase
-        run: node tests/rebuild/full-platform.mjs ${{ matrix.mode == 'upgrade' && '--upgrade' || '' }}
+        run: node tests/rebuild/full-platform.mjs --${{ matrix.mode }}

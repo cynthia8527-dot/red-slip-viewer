@@ -1,0 +1,21 @@
+# Bounded synthetic volume reliability checks
+
+This is an isolated GitHub full-Supabase workload, not a production load test or proof of years of uptime. CLI 2.118.0 creates a random unlinked project with an empty public schema. No paid resources, remote test database writes, credentials changes, Drive integration or remote deployment are used.
+
+Stages: 100 products / 200 prices / 100 shipments; 1,200 / 2,400 / 1,500; 3,000 / 6,000 / 10,000. Each has 100 vendors and 200 sites. Prices have two historical periods; shipments span four synthetic years, with 20% in progress and 80% shipped, across the app's three factory locations. Nine complete-read passes verify exact counts, distinct IDs, product relationships, 70-unit-price/864.15 historical amounts, current versus historical pricing, status counts and the last record. Twenty-four write requests at concurrency six must produce six new shipments and eighteen replays. Real Chromium loads the actual board/catalog pages against local APIs and searches records beyond the old cap. Image-heavy catalogs and mobile hardware are not benchmarked; actual photo-byte/link/delete checks run separately in the same disposable job.
+
+`node tests/rebuild/full-platform.mjs --volume` uses the pinned CLI at REBUILD_CLI. It logs stage seeding and complete-read timings, browser timings, write timings and total workload duration. Three fixed stages, three read passes each, 24 writes and a 25-minute CI timeout bound the exercise. No long-running soak or service stress loop runs.
+
+## Fix and regression
+
+Before the fix, the shipment Edge GET used a single select; its cap-emulating regression returned 1,000 of 1,201 rows and incorrectly returned success on an unrequested later page. The original queries in the product/price/vendor/site/dispatch/photo lists had the same single-query pattern. The full-platform workload retains a native unpaginated query as a control: it must return only 1,000 at the larger stages while the fixed app reads all rows.
+
+`data/pagination.js` and shipment GET use ascending immutable UUID cursors, pages of 500, and an empty-page completion check (including servers with a smaller cap). Failed or non-advancing pages never publish partial results. UI display sorting is applied after complete retrieval; existing filters and role policies are preserved. A 400-page bound fails explicitly instead of returning a truncated success. Unit regressions cover 1,201 rows, a smaller server cap, later-page errors, cursor repetition, and deletion of a preceding row between pages. This is NOT a database snapshot across requests: concurrent inserts behind the cursor or concurrent edits can require refresh, and simultaneous users changing the same data remain a separate consistency risk.
+
+The app still loads full collections into memory and the board refreshes periodically. These fixes prevent silent truncation; they do not establish unlimited scalability. If measured larger workloads become slow, server-side filtering/paging and bounded rendering will require their own correctness tests. No server API max_rows setting was increased and no database permissions were relaxed.
+
+## Recovery rehearsal boundary (next stage)
+
+Existing disposable PostgreSQL containers provide pg_dump/pg_restore and the current pinned client can download/upload synthetic Storage objects. These can support a separate local database-plus-photo rehearsal without building a Drive integration. A database dump alone does not include physical Storage files. Before claiming recovery, inventory synthetic photo bytes and paths, capture relational data and permissions, restore into a second disposable platform, then compare IDs/relations/amounts/permissions and image hashes and verify login/query behavior. Never use current production data, production backups or persistent credentials for that rehearsal.
+
+This volume stage does not implement or execute that recovery routine. A new bounded test harness and careful platform-schema restore plan are still needed; there is no existing complete backup/restore command in this repository. Actual production backup access, restoring a live project, any paid resources or a new external backup integration would require separate authorization. Google Drive work remains deferred.

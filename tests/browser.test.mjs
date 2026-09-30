@@ -60,7 +60,7 @@ test('T016/T017/T021/T031 browser smoke: isolated pages and timeout retries', as
     // All HTTP traffic, including Supabase API calls, is intercepted in this browser.
     const staffClient = `export function createClient(){const rows={products:[],vendor_prices:[],vendors:[]};return {
       auth:{getSession:async()=>({data:{session:{user:{id:'staff-a',email:'test@example.invalid'},access_token:'offline-token'}}})},
-      from(table){const query={select:()=>query,eq:()=>query,order:async()=>({data:rows[table]||[],error:null}),
+      from(table){const query={select:()=>query,eq:()=>query,order:()=>query,limit:()=>query,gt:()=>query,then:resolve=>resolve({data:rows[table]||[],error:null}),
         maybeSingle:async()=>({data:{display_name:'測試員工',role:'staff',active:true},error:null})};return query}
     }}`;
     const replayContext = await browser.newContext();
@@ -158,8 +158,8 @@ test('T016/T017/T021/T031 browser smoke: isolated pages and timeout retries', as
     // Exercise the real quick-product form with immediate and reload retries.
     const adminClient = `export function createClient(){return {
       auth:{getSession:async()=>({data:{session:{user:{id:'admin-a'},access_token:'offline-token'}}})},
-      from(table){const query={select:()=>query,eq:()=>query,
-        order:async()=>({data:await (await fetch('http://127.0.0.1:54321/rest/v1/'+table)).json(),error:null}),
+      from(table){let cursor='';const query={select:()=>query,eq:()=>query,order:()=>query,limit:()=>query,gt:(_key,value)=>{cursor=value;return query},
+        then:async resolve=>resolve({data:(await (await fetch('http://127.0.0.1:54321/rest/v1/'+table)).json()).filter(row=>row.id>cursor).sort((a,b)=>a.id.localeCompare(b.id)).slice(0,500),error:null}),
         maybeSingle:async()=>({data:{display_name:'測試管理員',role:'admin',active:true},error:null})};return query},
       async rpc(name,body){try{return {data:await (await fetch('http://127.0.0.1:54321/rest/v1/rpc/'+name,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json(),error:null}}catch(error){return {data:null,error}}}
     }}`;

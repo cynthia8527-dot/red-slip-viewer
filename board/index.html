@@ -42,6 +42,7 @@
 <div class="field span2"><label>廠商</label><div id="qVendor" class="readonlyBox"></div></div><div class="field span2"><label>商品名稱 *</label><input id="qName"></div><div class="field"><label>材質</label><input id="qMaterial"></div><div class="field"><label>標準製程</label><input id="qProcess"></div><div class="field"><label>單價 *</label><input id="qPrice" type="number" step="any" min="0"></div><div class="field"><label>最低計價</label><input id="qMinimum" type="number" step="any" min="0" placeholder="例如 300；沒有就留空"></div><div class="field"><label>單位</label><input id="qUnit" value="kg"></div><div class="field full"><label>製程／注意事項</label><textarea id="qNotes"></textarea></div><div class="field full"><div class="hint">商品照片可之後到「產品／價格／製程知識庫」補上。</div></div></div><div class="actions"><button class="btn primary" id="qSave">建立商品</button><button class="btn secondary" id="qCancel">取消</button></div></section></div>
 
 <script type="module">
+import { readAllRows, byText } from '../data/pagination.js';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.116.0';
 import {resolveConfig} from '../config.js';
 import {priceIsEffective as sharedPriceIsEffective} from '../data/pricing.js';
@@ -127,7 +128,7 @@ async function uploadShipmentPhotos(shipmentId,fileList,stateEl){
   return done;
 }
 async function loadShipmentPhotos(shipmentId){
-  const {data,error}=await supabaseClient.from('shipment_photos').select('id,storage_path,caption,created_at').eq('shipment_id',shipmentId).order('created_at',{ascending:true});
+  const {data,error}=await readAllRows(()=>supabaseClient.from('shipment_photos').select('id,storage_path,caption,created_at').eq('shipment_id',shipmentId),byText('created_at'));
   if(error)throw error;
   return await Promise.all((data||[]).map(async x=>({...x,url:await signedPhoto(x.storage_path)})));
 }
@@ -135,7 +136,7 @@ async function renderEditGallery(){
   if(!editingId)return;$('eGallery').innerHTML='<div class="photoEmpty">讀取照片中…</div>';
   try{const photos=await loadShipmentPhotos(editingId);$('eGallery').innerHTML=photos.length?photos.map(p=>p.url?`<a class="shipmentPhoto" href="${esc(p.url)}" target="_blank" rel="noopener"><img src="${esc(p.url)}" alt="貨件照片"></a>`:'').join(''):'<div class="photoEmpty">這批目前沒有照片</div>'}catch(e){$('eGallery').innerHTML='<div class="photoEmpty">照片讀取失敗</div>'}
 }
-async function loadCatalog(){const [{data:p,error:pe},{data:v,error:ve},{data:vm,error:vme}]=await Promise.all([supabaseClient.from('products').select('*').eq('is_active',true).order('name'),supabaseClient.from('vendor_prices').select('*').order('vendor_name'),supabaseClient.from('vendors').select('*').eq('is_active',true).order('short_name')]);if(pe||ve||vme)throw pe||ve||vme;products=await Promise.all((p||[]).map(async x=>({...x,photo_url:await signedPhoto(x.reference_photo_path)})));prices=v||[];vendorMasters=vm||[]}
+async function loadCatalog(){const [{data:p,error:pe},{data:v,error:ve},{data:vm,error:vme}]=await Promise.all([readAllRows(()=>supabaseClient.from('products').select('*').eq('is_active',true),byText('name')),readAllRows(()=>supabaseClient.from('vendor_prices').select('*'),byText('vendor_name')),readAllRows(()=>supabaseClient.from('vendors').select('*').eq('is_active',true),byText('short_name'))]);if(pe||ve||vme)throw pe||ve||vme;products=await Promise.all((p||[]).map(async x=>({...x,photo_url:await signedPhoto(x.reference_photo_path)})));prices=v||[];vendorMasters=vm||[]}
 function vendorNames(){return [...new Set([...vendorMasters.map(x=>x.short_name),...prices.map(x=>x.vendor_name)])].filter(Boolean).sort((a,b)=>a.localeCompare(b,'zh-Hant'))}
 function vendorMasterByName(name){const list=vendorMasters.filter(v=>v.short_name===name);return list.length===1?list[0]:null}
 function vendorIdForName(name){return vendorMasterByName(name)?.id||null}

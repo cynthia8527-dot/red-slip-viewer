@@ -8,6 +8,8 @@ import assert from 'node:assert/strict';
 import { manifest, verifyManifest } from './replay.mjs';
 import { rehearse, upgrade } from '../upgrade/rehearsal.mjs';
 import { exerciseWorkflow } from '../upgrade/workflow.mjs';
+import { runVolume } from '../volume/workload.mjs';
+const volumeMode=process.argv.includes('--volume');
 const upgradeMode=process.argv.includes('--upgrade');
 const root = new URL('../../', import.meta.url);
 const read = p => readFileSync(new URL(p, root), 'utf8');
@@ -60,7 +62,7 @@ try {
     if (ok && !response.ok) throw new Error(`${method} ${path.split('?')[0]} HTTP ${response.status}`);
     return response;
   };
-  if(upgradeMode){
+  if(upgradeMode||volumeMode){
     cpSync(new URL('../../supabase/functions/',import.meta.url),join(work,'supabase/functions'),{recursive:true});
     const map=join(work,'supabase/functions/import_map.json');
     writeFileSync(map,JSON.stringify({imports:{'npm:@supabase/supabase-js@2':'npm:@supabase/supabase-js@2.117.2','npm:@supabase/supabase-js@2/cors':'npm:@supabase/supabase-js@2.117.2/cors'}}));
@@ -85,7 +87,7 @@ try {
   assert.equal(product.replayed,false); assert.equal(retry.replayed,true);
   assert.equal(product.product.id,retry.product.id);
   assert.match(product.product.id,/^[0-9a-f-]{36}$/);
-  if(upgradeMode) await exerciseWorkflow({api,sql,token,productId:product.product.id});
+  if(upgradeMode||volumeMode) await exerciseWorkflow({api,sql,token,productId:product.product.id});
   sql(`delete from public.vendor_prices where product_id='${product.product.id}'; delete from public.products where id='${product.product.id}';`);
   console.log('PASS real PostgREST RPC creation and idempotent retry');
   const object = `products/${randomUUID()}.png`;
@@ -102,6 +104,7 @@ try {
   assert.equal(absent.ok,false);
   assert.ok(absent.status===404 || (absent.status===400 && (String(absence.statusCode)==='404' || absence.error==='NoSuchKey')));
   console.log('PASS real private Storage upload/download/anonymous denial/delete and absence');
+  if(volumeMode) await runVolume({api,sql,status,token,session:login});
   await api('/auth/v1/logout?scope=global',{token,method:'POST'});
   await api('/auth/v1/admin/users/'+account.id,{method:'DELETE'});
   const tables = sql("select quote_ident(schemaname)||'.'||quote_ident(tablename) from pg_tables where schemaname in ('public','private') order by 1;").trim().split('\n');
