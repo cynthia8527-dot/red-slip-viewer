@@ -100,49 +100,60 @@ test('T016/T017/T021 browser smoke: isolated pages and timeout retries', async (
     await replayContext.close();
 
     // The first shipment POST commits on the mock server, but its response is lost.
-    // A user click retries the same request key and must display one shipment.
-    const createContext = await browser.newContext();
-    const createErrors = [], alerts = [], requests = [];
-    const shipment = { id: 'shipment-retry', vendor_name: 'Test vendor', item_name: 'Test item', location: '蘆洲', status: '未開始', urgent: false, is_demo: false };
-    await createContext.route('**/*', route => {
-      const url = new URL(route.request().url());
-      if (url.hostname === 'esm.sh') return route.fulfill({ status: 200, contentType: 'text/javascript', headers: { 'access-control-allow-origin': '*' }, body: staffClient });
-      if (url.hostname === '127.0.0.1' && url.port === String(port)) return route.continue();
-      if (url.hostname === '127.0.0.1' && url.port === '54321' && url.pathname === '/functions/v1/shipments') {
-        const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization,content-type,idempotency-key', 'access-control-allow-methods': 'GET,POST,OPTIONS' };
-        if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers });
-        if (route.request().method() === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', headers, body: JSON.stringify({ shipments: requests.length ? [shipment] : [] }) });
-        assert.equal(route.request().method(), 'POST');
-        requests.push({ key: route.request().headers()['idempotency-key'], body: route.request().postData() });
-        if (requests.length === 1) return route.abort('failed');
-        return route.fulfill({ status: 201, contentType: 'application/json', headers, body: JSON.stringify({ shipment, replayed: true }) });
+    // Cover both an immediate retry and a retry after reload with the same form.
+    for (const reloadBeforeRetry of [false, true]) {
+      const createContext = await browser.newContext();
+      const createErrors = [], alerts = [], requests = [];
+      const shipment = { id: 'shipment-retry', vendor_name: 'Test vendor', item_name: 'Test item', location: '蘆洲', status: '未開始', urgent: false, is_demo: false };
+      await createContext.route('**/*', route => {
+        const url = new URL(route.request().url());
+        if (url.hostname === 'esm.sh') return route.fulfill({ status: 200, contentType: 'text/javascript', headers: { 'access-control-allow-origin': '*' }, body: staffClient });
+        if (url.hostname === '127.0.0.1' && url.port === String(port)) return route.continue();
+        if (url.hostname === '127.0.0.1' && url.port === '54321' && url.pathname === '/functions/v1/shipments') {
+          const headers = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization,content-type,idempotency-key', 'access-control-allow-methods': 'GET,POST,OPTIONS' };
+          if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers });
+          if (route.request().method() === 'GET') return route.fulfill({ status: 200, contentType: 'application/json', headers, body: JSON.stringify({ shipments: requests.length ? [shipment] : [] }) });
+          assert.equal(route.request().method(), 'POST');
+          requests.push({ key: route.request().headers()['idempotency-key'], body: route.request().postData() });
+          if (requests.length === 1) return route.abort('failed');
+          return route.fulfill({ status: 201, contentType: 'application/json', headers, body: JSON.stringify({ shipment, replayed: true }) });
+        }
+        blocked.push(url.href);
+        return route.abort();
+      });
+      const createPage = await createContext.newPage();
+      createPage.on('pageerror', error => createErrors.push(error.message));
+      createPage.on('dialog', async dialog => { alerts.push(dialog.message()); await dialog.accept(); });
+      await createPage.goto(boardUrl);
+      await createPage.locator('#appMain').waitFor({ state: 'visible' });
+      await createPage.locator('#toggleForm').click();
+      await createPage.locator('#fVendor').fill('Test vendor');
+      await createPage.locator('#fItem').fill('Test item');
+      await createPage.locator('#addTask').click();
+      await createPage.waitForFunction(() => document.querySelector('#addTask').disabled === false && sessionStorage.getItem('factory-board:pending-shipment-create'));
+      assert.match(alerts.join(' '), /新增失敗/);
+      const pending = await createPage.evaluate(() => JSON.parse(sessionStorage.getItem('factory-board:pending-shipment-create')));
+      assert.equal(requests.length, 1);
+      assert.equal(requests[0].key, pending.key);
+      if (reloadBeforeRetry) {
+        await createPage.reload();
+        await createPage.locator('#appMain').waitFor({ state: 'visible' });
+        assert.equal(requests.length, 1, 'reload must not post the shipment again');
+        assert.equal(await createPage.evaluate(() => JSON.parse(sessionStorage.getItem('factory-board:pending-shipment-create')).key), pending.key);
+        await createPage.locator('#toggleForm').click();
+        await createPage.locator('#fVendor').fill('Test vendor');
+        await createPage.locator('#fItem').fill('Test item');
       }
-      blocked.push(url.href);
-      return route.abort();
-    });
-    const createPage = await createContext.newPage();
-    createPage.on('pageerror', error => createErrors.push(error.message));
-    createPage.on('dialog', async dialog => { alerts.push(dialog.message()); await dialog.accept(); });
-    await createPage.goto(boardUrl);
-    await createPage.locator('#appMain').waitFor({ state: 'visible' });
-    await createPage.locator('#toggleForm').click();
-    await createPage.locator('#fVendor').fill('Test vendor');
-    await createPage.locator('#fItem').fill('Test item');
-    await createPage.locator('#addTask').click();
-    await createPage.waitForFunction(() => document.querySelector('#addTask').disabled === false && sessionStorage.getItem('factory-board:pending-shipment-create'));
-    assert.match(alerts.join(' '), /新增失敗/);
-    const pending = await createPage.evaluate(() => JSON.parse(sessionStorage.getItem('factory-board:pending-shipment-create')));
-    assert.equal(requests.length, 1);
-    assert.equal(requests[0].key, pending.key);
-    await createPage.locator('#addTask').click();
-    await createPage.waitForFunction(() => document.querySelector('#syncText').textContent.includes('剛剛已同步'));
-    assert.equal(requests.length, 2);
-    assert.equal(requests[1].key, requests[0].key);
-    assert.equal(requests[1].body, requests[0].body);
-    assert.equal(await createPage.evaluate(() => sessionStorage.getItem('factory-board:pending-shipment-create')), null);
-    assert.equal(await createPage.locator('#cActive').innerText(), '1');
-    assert.deepEqual(createErrors, []);
-    await createContext.close();
+      await createPage.locator('#addTask').click();
+      await createPage.waitForFunction(() => document.querySelector('#syncText').textContent.includes('剛剛已同步'));
+      assert.equal(requests.length, 2);
+      assert.equal(requests[1].key, requests[0].key);
+      assert.equal(requests[1].body, requests[0].body);
+      assert.equal(await createPage.evaluate(() => sessionStorage.getItem('factory-board:pending-shipment-create')), null);
+      assert.equal(await createPage.locator('#cActive').innerText(), '1');
+      assert.deepEqual(createErrors, []);
+      await createContext.close();
+    }
     assert.deepEqual(blocked, [], `Non-local request attempted: ${blocked.join(', ')}`);
     await context.close();
   } finally {
