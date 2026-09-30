@@ -104,7 +104,10 @@ try {
   assert.equal(absent.ok,false);
   assert.ok(absent.status===404 || (absent.status===400 && (String(absence.statusCode)==='404' || absence.error==='NoSuchKey')));
   console.log('PASS real private Storage upload/download/anonymous denial/delete and absence');
-  if(volumeMode) await runVolume({api,sql,status,token,session:login});
+  if(volumeMode) {
+    for(const command of ['pg_dump','pg_restore']) console.log('RECOVERY TOOL '+run('docker',['exec',container,command,'--version']).trim());
+    await runVolume({api,sql,status,token,session:login});
+  }
   await api('/auth/v1/logout?scope=global',{token,method:'POST'});
   await api('/auth/v1/admin/users/'+account.id,{method:'DELETE'});
   const tables = sql("select quote_ident(schemaname)||'.'||quote_ident(tablename) from pg_tables where schemaname in ('public','private') order by 1;").trim().split('\n');

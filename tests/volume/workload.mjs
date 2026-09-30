@@ -19,7 +19,7 @@ export async function runVolume({api,sql,status,token,session}) {
     const seedStart=performance.now();
     await sql(`insert into public.products(id,name,material,standard_process) select ('b1000000-0000-4000-8000-'||lpad(i::text,12,'0'))::uuid,'Synthetic product '||lpad(i::text,5,'0'),'steel','grind' from generate_series(${priorProducts+1},${stage.products}) i;
     insert into public.vendor_prices(id,vendor_name,vendor_id,product_id,unit_price,minimum_charge,effective_date,end_date)
-    select ('b3000000-0000-4000-8000-'||lpad((i*2+v)::text,12,'0'))::uuid,'Synthetic vendor '||((i-1)%100+1),('b2000000-0000-4000-8000-'||lpad(((i-1)%100+1)::text,12,'0'))::uuid,('b1000000-0000-4000-8000-'||lpad(i::text,12,'0'))::uuid,case v when 0 then 70 else 100 end,500,case v when 0 then date '2022-01-01' else date '2025-01-01' end,case v when 0 then date '2024-12-31' else null end from generate_series(${priorProducts+1},${stage.products}) i cross join generate_series(0,1) v;
+    select ('b3000000-0000-4000-8000-'||lpad((i*2+v)::text,12,'0'))::uuid,'Synthetic vendor '||((i-1)%100+1),('b2000000-0000-4000-8000-'||lpad(((i-1)%100+1)::text,12,'0'))::uuid,('b1000000-0000-4000-8000-'||lpad(i::text,12,'0'))::uuid,case v when 0 then 70 else 100 end,500,case v when 0 then date '2022-01-01' else date '2026-01-01' end,case v when 0 then date '2025-12-31' else null end from generate_series(${priorProducts+1},${stage.products}) i cross join generate_series(0,1) v;
     insert into public.shipments(id,vendor_name,vendor_id,product_id,item_name,location,status,weight_kg,unit_price_snapshot,unit_snapshot,minimum_charge_snapshot,calculated_amount_snapshot,shipped_at,created_at)
     select ('b4000000-0000-4000-8000-'||lpad(i::text,12,'0'))::uuid,'Synthetic vendor '||((i-1)%100+1),('b2000000-0000-4000-8000-'||lpad(((i-1)%100+1)::text,12,'0'))::uuid,('b1000000-0000-4000-8000-'||lpad(((i-1)%${stage.products}+1)::text,12,'0'))::uuid,'Synthetic item '||i,(array['蘆洲','五股','八里'])[(i%3)+1],case when i%5=0 then '處理中' else '已出貨' end,12.345,70,'kg',500,864.15,case when i%5=0 then null else timestamptz '2022-01-01Z'+(i%1460)*interval '1 day' end,timestamptz '2022-01-01Z'+(i%1460)*interval '1 day' from generate_series(${priorShipments+1},${stage.shipments}) i;`);
     const seedMs=performance.now()-seedStart;
@@ -52,8 +52,9 @@ export async function runVolume({api,sql,status,token,session}) {
   // 24 requests with bounded concurrency six; six distinct operations repeated four times.
   const requestIds=Array.from({length:6},()=>randomUUID());
   const writesStarted=performance.now();const ids=new Set();let newCount=0,replayed=0;
-  for(let round=0;round<4;round++){
-    const results=await Promise.all(requestIds.map(async(key,i)=>{
+  const requests=requestIds.flatMap((key,i)=>Array.from({length:4},()=>({key,i})));
+  for(let batch=0;batch<requests.length;batch+=6){
+    const results=await Promise.all(requests.slice(batch,batch+6).map(async({key,i})=>{
       const r=await api('/functions/v1/shipments',{token,method:'POST',headers:{'Idempotency-Key':key},body:{vendor_name:'Synthetic retry vendor',item_name:'Synthetic retry '+i,location:'蘆洲',status:'未開始'}});return r.json();
     }));
     for(const r of results){assert.match(r.shipment.id,/^[0-9a-f-]{36}$/);ids.add(r.shipment.id);r.replayed?replayed++:newCount++;}

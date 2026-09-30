@@ -29,7 +29,7 @@ export async function verifyVolumeBrowser({status,session}){
   browser=await chromium.launch({executablePath:browserPath,headless:true,args:['--no-sandbox']});
   const context=await browser.newContext();
   const errors=[];context.on('page',page=>page.on('pageerror',e=>errors.push(e.message)));
-  await context.addInitScript(({key,session})=>localStorage.setItem(key,JSON.stringify(session)),{key:'sb-'+new URL(status.API_URL).hostname.split('.')[0]+'-auth-token',session});
+  await context.addInitScript(({key,session,origin})=>{if(location.origin===origin)localStorage.setItem(key,JSON.stringify(session));},{origin:`http://127.0.0.1:${server.address().port}`,key:'sb-'+new URL(status.API_URL).hostname.split('.')[0]+'-auth-token',session});
   await context.route('**/*',route=>{
    const url=new URL(route.request().url());
    if(url.hostname==='esm.sh'&&url.pathname.startsWith('/@supabase/supabase-js'))return route.fulfill({status:200,contentType:'text/javascript',body:sdk});
@@ -56,8 +56,8 @@ export async function verifyVolumeBrowser({status,session}){
   await pricePage.waitForFunction(()=>document.querySelectorAll('#grid .card').length===1&&document.getElementById('grid').textContent.includes('Synthetic product 03000'));
   assert.match(await pricePage.locator('#grid .price').textContent(),/100/);
   const priceMs=Math.round(performance.now()-priceStart);
-  assert.deepEqual(errors,[]);
   console.log('VOLUME BROWSER '+JSON.stringify({shipments:10000,active:2000,shipped:8000,products:3000,board_load_ms:loadMs,search_last_ms:searchMs,catalog_load_and_search_ms:priceMs,real_local_api:true,sdk:'2.117.2',browser:browser.version()}));
+  assert.deepEqual(errors,[]);
   await context.close();
  }finally{await browser?.close();await new Promise(r=>server.close(r));}
 }
