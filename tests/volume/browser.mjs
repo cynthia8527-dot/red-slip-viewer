@@ -41,6 +41,10 @@ export async function verifyVolumeBrowser({status,session}){
   await page.waitForFunction(()=>document.getElementById('cActive').textContent==='2000',{},{timeout:45000});
   assert.equal(await page.locator('#cShipped').textContent(),'8000');
   const loadMs=Math.round(performance.now()-start);
+  assert.equal(await page.locator('#tbody tr').count(),100);
+  assert.equal(await page.locator('#mobile .mcard').count(),100);
+  await page.locator('#listNext').click();assert.match(await page.locator('#listPageInfo').textContent(),/101–200 \/ 2000/);
+  await page.locator('#listPrev').click();assert.match(await page.locator('#listPageInfo').textContent(),/1–100 \/ 2000/);
   const searchStart=performance.now();await page.locator('#search').fill('Synthetic item 10000');
   await page.waitForFunction(()=>document.querySelectorAll('tbody tr').length===1&&document.querySelector('tbody').textContent.includes('Synthetic item 10000'));
   const searchMs=Math.round(performance.now()-searchStart);
@@ -56,7 +60,7 @@ export async function verifyVolumeBrowser({status,session}){
   await pricePage.waitForFunction(()=>document.querySelectorAll('#grid .card').length===1&&document.getElementById('grid').textContent.includes('Synthetic product 03000'));
   assert.match(await pricePage.locator('#grid .price').textContent(),/100/);
   const priceMs=Math.round(performance.now()-priceStart);
-  console.log('VOLUME BROWSER '+JSON.stringify({shipments:10000,active:2000,shipped:8000,products:3000,board_load_ms:loadMs,search_last_ms:searchMs,catalog_load_and_search_ms:priceMs,real_local_api:true,sdk:'2.117.2',browser:browser.version()}));
+  console.log('VOLUME BROWSER '+JSON.stringify({shipments:10000,active:2000,shipped:8000,products:3000,board_load_ms:loadMs,search_last_ms:searchMs,catalog_load_and_search_ms:priceMs,real_local_api:true,rendered_rows_per_page:100,full_dataset_search:true,sdk:'2.117.2',browser:browser.version()}));
   assert.deepEqual(errors,[]);
   await context.close();
  }finally{await browser?.close();await new Promise(r=>server.close(r));}

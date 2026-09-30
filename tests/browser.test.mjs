@@ -63,6 +63,29 @@ test('T016/T017/T021/T031 browser smoke: isolated pages and timeout retries', as
       from(table){const query={select:()=>query,eq:()=>query,order:()=>query,limit:()=>query,gt:()=>query,then:resolve=>resolve({data:rows[table]||[],error:null}),
         maybeSingle:async()=>({data:{display_name:'測試員工',role:'staff',active:true},error:null})};return query}
     }}`;
+    // A large authenticated list must render a bounded page while searching every row.
+    const volumeContext = await browser.newContext();
+    const volumeRows=Array.from({length:1001},(_,i)=>({id:'volume-'+(i+1),vendor_name:'Synthetic vendor',item_name:'Volume item '+(i+1),location:'蘆洲',status:'未開始',weight_kg:1,created_at:'2026-01-01T00:00:00Z'}));
+    await volumeContext.route('**/*',route=>{
+      const url=new URL(route.request().url());
+      if(url.hostname==='esm.sh')return route.fulfill({status:200,contentType:'text/javascript',body:staffClient});
+      if(url.hostname==='127.0.0.1'&&url.port===String(port))return route.continue();
+      if(url.hostname==='127.0.0.1'&&url.port==='54321'&&url.pathname==='/functions/v1/shipments')return route.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*','access-control-allow-headers':'authorization'},body:JSON.stringify({shipments:volumeRows})});
+      return route.abort();
+    });
+    const volumePage=await volumeContext.newPage();
+    await volumePage.goto(`http://127.0.0.1:${port}/board/index.html`);
+    await volumePage.waitForFunction(()=>document.getElementById('cActive').textContent==='1001');
+    assert.equal(await volumePage.locator('#tbody tr').count(),100);
+    assert.equal(await volumePage.locator('#mobile .mcard').count(),100);
+    await volumePage.locator('#listNext').click();
+    assert.match(await volumePage.locator('#listPageInfo').textContent(),/101–200 \/ 1001/);
+    await volumePage.locator('#search').fill('Volume item 1001');
+    assert.equal(await volumePage.locator('#tbody tr').count(),1);
+    assert.match(await volumePage.locator('#tbody').textContent(),/Volume item 1001/);
+    assert.equal(await volumePage.locator('#listNext').isDisabled(),true);
+    assert.equal(await volumePage.locator('#listPrev').isDisabled(),true);
+    await volumeContext.close();
     const replayContext = await browser.newContext();
     let attempts = 0;
     const replayErrors = [];
