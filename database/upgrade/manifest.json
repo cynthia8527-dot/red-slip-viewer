@@ -1,0 +1,24 @@
+{
+  "kind": "synthetic-legacy-upgrade-rehearsal",
+  "base_commit": "b393a9c4fc497f9a28e2ecd1b45a958a1dafd231",
+  "legacy_source": {
+    "path": "database/rebuild/supabase/migrations/20260930075150_reconstructed_business_baseline.sql",
+    "sha256": "5e1545a59d18341b4c97150d391fb2c5d120936ea8ad0ff5c0e7d4d956e154aa"
+  },
+  "candidate": {
+    "path": "database/upgrade/supabase/migrations/20260930085010_upgrade_reconstructed_legacy_business.sql",
+    "sha256": "c7fc6bb5643f6977740aa7eb273ddd4afeaffbab220e47bd6c49697a793bf362"
+  },
+  "sources": [
+    {
+      "path": "database/rebuild/supabase/migrations/20260930075151_request_columns.sql",
+      "sha256": "0bbd3e07e29d843c1c1566676c04f4ea987a60128675e53c17f61f639aa1e990",
+      "transform": "remove standalone begin/commit lines; one enclosing transaction"
+    },
+    {
+      "path": "database/rebuild/supabase/migrations/20260930075152_business_contracts_and_rpcs.sql",
+      "sha256": "fb0a9baa4c77de751072e08494be86938219b4debc02145a213144220e4f041e",
+      "transform": "remove standalone begin/commit lines; one enclosing transaction"
+    }
+  ]
+}

@@ -4,3 +4,4 @@ tests/tmp/
 node_modules/
 supabase/.temp/
 database/rebuild/supabase/.temp/
+database/upgrade/supabase/.temp/

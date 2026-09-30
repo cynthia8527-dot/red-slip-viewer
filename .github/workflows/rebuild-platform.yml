@@ -4,6 +4,10 @@ permissions:
   contents: read
 jobs:
   rebuild:
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [fresh, upgrade]
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -21,7 +25,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Install official pinned Supabase CLI
         run: npm install --prefix "$RUNNER_TEMP/rebuild-cli" --no-audit --no-fund supabase@2.118.0
-      - name: Empty full platform replay and integration checks
+      - name: Full platform replay and integration checks
         env:
           REBUILD_CLI: ${{ runner.temp }}/rebuild-cli/node_modules/.bin/supabase
-        run: node tests/rebuild/full-platform.mjs
+        run: node tests/rebuild/full-platform.mjs ${{ matrix.mode == 'upgrade' && '--upgrade' || '' }}

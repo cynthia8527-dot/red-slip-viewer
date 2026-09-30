@@ -1,11 +1,14 @@
 // Only a newly created local Docker platform; no remote URL or credentials accepted.
-import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, cpSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { manifest, verifyManifest } from './replay.mjs';
+import { rehearse, upgrade } from '../upgrade/rehearsal.mjs';
+import { exerciseWorkflow } from '../upgrade/workflow.mjs';
+const upgradeMode=process.argv.includes('--upgrade');
 const root = new URL('../../', import.meta.url);
 const read = p => readFileSync(new URL(p, root), 'utf8');
 const work = mkdtempSync(join(tmpdir(), 'red-slip-rebuild-'));
@@ -18,7 +21,7 @@ function run(command, args, input) {
   return r.stdout;
 }
 const supa = (...args) => run(cli, [...args, '--workdir', work]);
-let container;
+let container, edge;
 const sql = text => run('docker', ['exec', '-i', container, 'psql', '-X', '-U', 'postgres', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-At'], text);
 try {
   verifyManifest();
@@ -34,10 +37,12 @@ try {
   supa('start');
   assert.equal(sql("select count(*) from pg_tables where schemaname='public';").trim(), '0');
   console.log('PASS empty public schema; official Auth/Storage platform initialized');
-  for (const entry of manifest.migrations) {
+  const entries=upgradeMode ? manifest.migrations.slice(0,1) : manifest.migrations;
+  for (const entry of entries) {
     sql(read('database/rebuild/'+entry.file));
     console.log('REPLAY PASS '+entry.file);
   }
+  if(upgradeMode) await rehearse(async text=>sql(text),message=>console.log('UPGRADE PASS '+message));
   sql(read('tests/rebuild/schema-regression.sql'));
   console.log('PASS catalog/RLS/grants/RPC/index regression');
   sql("update storage.buckets set id='factory-photos-test',name='factory-photos-test' where id='factory-photos';");
@@ -50,11 +55,18 @@ try {
   const base = new URL(status.API_URL);
   assert.ok(['127.0.0.1','localhost'].includes(base.hostname));
   assert.equal(base.protocol, 'http:');
-  const api = async (path, { token=status.SERVICE_ROLE_KEY, method='GET', body, bytes, ok=true }={}) => {
-    const response = await fetch(new URL(path, base), { method, headers: { apikey: status.ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': bytes ? 'image/png' : 'application/json' }, body: bytes || (body === undefined ? undefined : JSON.stringify(body)), signal: AbortSignal.timeout(20000) });
+  const api = async (path, { token=status.SERVICE_ROLE_KEY, method='GET', body, bytes, headers={}, ok=true }={}) => {
+    const response = await fetch(new URL(path, base), { method, headers: { apikey: status.ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': bytes ? 'image/png' : 'application/json', ...headers }, body: bytes || (body === undefined ? undefined : JSON.stringify(body)), signal: AbortSignal.timeout(20000) });
     if (ok && !response.ok) throw new Error(`${method} ${path.split('?')[0]} HTTP ${response.status}`);
     return response;
   };
+  if(upgradeMode){
+    cpSync(new URL('../../supabase/functions/',import.meta.url),join(work,'supabase/functions'),{recursive:true});
+    const map=join(work,'supabase/functions/import_map.json');
+    writeFileSync(map,JSON.stringify({imports:{'npm:@supabase/supabase-js@2':'npm:@supabase/supabase-js@2.117.2','npm:@supabase/supabase-js@2/cors':'npm:@supabase/supabase-js@2.117.2/cors'}}));
+    edge=spawn(cli,['functions','serve','--import-map',map,'--workdir',work],{stdio:'ignore',detached:true});
+    edge.on('error',()=>{});
+  }
   const email = `rebuild-${randomUUID()}@example.invalid`, password = randomUUID()+randomUUID();
   const account = await (await api('/auth/v1/admin/users', {method:'POST', body:{email,password,email_confirm:true}})).json();
   assert.match(account.id, /^[0-9a-f-]{36}$/);
@@ -73,6 +85,7 @@ try {
   assert.equal(product.replayed,false); assert.equal(retry.replayed,true);
   assert.equal(product.product.id,retry.product.id);
   assert.match(product.product.id,/^[0-9a-f-]{36}$/);
+  if(upgradeMode) await exerciseWorkflow({api,sql,token,productId:product.product.id});
   sql(`delete from public.vendor_prices where product_id='${product.product.id}'; delete from public.products where id='${product.product.id}';`);
   console.log('PASS real PostgREST RPC creation and idempotent retry');
   const object = `products/${randomUUID()}.png`;
@@ -94,9 +107,10 @@ try {
   const tables = sql("select quote_ident(schemaname)||'.'||quote_ident(tablename) from pg_tables where schemaname in ('public','private') order by 1;").trim().split('\n');
   for (const table of [...tables,'auth.users','auth.sessions','auth.refresh_tokens','storage.objects']) assert.equal(sql(`select count(*) from ${table};`).trim(),'0',`cleanup ${table}`);
   console.log('PASS final cleanup: business rows, accounts, sessions, refresh tokens, objects all zero');
-  console.log('FULL PLATFORM PASS (no Edge Functions deployment or production compatibility claim)');
+  console.log(upgradeMode ? 'FULL UPGRADE PLATFORM PASS (synthetic legacy boundary only; local Edge, no remote deployment)' : 'FULL PLATFORM PASS (no Edge Functions deployment or production compatibility claim)');
 } catch (error) { console.error(clean(error.message)); process.exitCode=1; }
 finally {
+  if(edge?.pid) {try {process.kill(-edge.pid,'SIGTERM');} catch {}}
   try { supa('stop','--no-backup'); console.log('Disposable containers/volumes removed'); }
   catch (error) { console.error(clean(error.message)); process.exitCode=1; }
   rmSync(work,{recursive:true,force:true});
