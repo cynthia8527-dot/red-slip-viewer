@@ -19,3 +19,13 @@ GitHub 每次推送、提出合併請求或手動啟動時，也會執行 `.gith
 2026-10-02 驗收補充：`tests/ui-acceptance.test.mjs` 已納入 `npm test`，以真實頁面及
 攔截的合成 API 回應串商品／價格生效與歷史／進貨／處理／出貨／年月搜尋，另驗證
 取消、返回、連點及更新失敗重試；不能作為真實 Auth／DB／Storage 證明。
+
+`tests/rebuild/full-platform.mjs --upgrade` 現在另執行
+`tests/rebuild/browser-acceptance.mjs`：真實頁面連接同一個拋棄式 Docker 平台的
+Auth／PostgREST／Edge／Storage，使用合成商品、價格、货件及微型圖片。
+SDK 由鎖定的本地套件提供，瀏覽器只允許測試頁面及該平台的 loopback origin。
+測試 config 的 `factory-photos-test` Storage URL 只在 loopback 映射到 baseline
+桶 `factory-photos`；不改正式設定、遠端權限或 JWT 驗證。
+既有 upgrade job 執行此測試，不增加 workflow 權限、秘密或付費 runner。
+工作環境受 vfs 解壓容量限制；使用者已批准先把這份測試送至原草稿 PR 的 CI 驗證。
+正式通過證據以對應 exact commit 的 CI 結果為準，不能只憑語法檢查。

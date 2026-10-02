@@ -10,6 +10,7 @@ import { rehearse, upgrade } from '../upgrade/rehearsal.mjs';
 import { exerciseWorkflow } from '../upgrade/workflow.mjs';
 import { runVolume } from '../volume/workload.mjs';
 import { runRecovery } from '../recovery/rehearsal.mjs';
+import { verifyAcceptanceBrowser } from './browser-acceptance.mjs';
 const recoveryMode=process.argv.includes('--recovery');
 const volumeMode=process.argv.includes('--volume');
 const upgradeMode=process.argv.includes('--upgrade');
@@ -92,6 +93,7 @@ try {
   if(upgradeMode||volumeMode) await exerciseWorkflow({api,sql,token,productId:product.product.id});
   sql(`delete from public.vendor_prices where product_id='${product.product.id}'; delete from public.products where id='${product.product.id}';`);
   console.log('PASS real PostgREST RPC creation and idempotent retry');
+  if(upgradeMode) await verifyAcceptanceBrowser({status,session:login,api,sql,token});
   const object = `products/${randomUUID()}.png`;
   const bytes = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jZl8AAAAASUVORK5CYII=', 'base64');
   await api('/storage/v1/object/factory-photos/'+object, {token,method:'POST',bytes});
