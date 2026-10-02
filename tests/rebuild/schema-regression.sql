@@ -1,8 +1,8 @@
 do $verify$
-declare n integer;
+declare n integer; allow_backup boolean := coalesce(current_setting('test.observed_backup_fixture',true),'off')='on';
 begin
   select count(*) into n from pg_tables where schemaname='public';
-  if n <> 10 then raise exception 'Expected 10 business tables, found %',n; end if;
+  if (allow_backup and n <> 11) or (not allow_backup and n <> 10) then raise exception 'Unexpected public table count: %',n; end if;
   if exists (select 1 from pg_class c join pg_namespace s on s.oid=c.relnamespace
     where s.nspname='public' and c.relkind='r' and not c.relrowsecurity) then
     raise exception 'A business table lacks RLS';
@@ -25,9 +25,10 @@ begin
   if exists (select 1 from pg_policies where schemaname='public' and 'anon'=any(roles)) then
     raise exception 'Historical anonymous catalog policy was replayed';
   end if;
-  if to_regclass('public.backup_snapshots') is not null or to_regnamespace('cron') is not null then
+  if not allow_backup and (to_regclass('public.backup_snapshots') is not null or to_regnamespace('cron') is not null) then
     raise exception 'Excluded backup/scheduler was installed';
   end if;
+  if allow_backup and (to_regclass('public.backup_snapshots') is null or to_regnamespace('cron') is null) then raise exception 'Observed backup fixture missing'; end if;
   if not exists (select 1 from storage.buckets where id='factory-photos' and public=false and file_size_limit=10485760) then
     raise exception 'Private bucket definition drift';
   end if;

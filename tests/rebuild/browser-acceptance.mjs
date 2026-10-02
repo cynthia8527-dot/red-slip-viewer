@@ -8,8 +8,8 @@ import {randomUUID} from 'node:crypto';
 import {chromium} from 'playwright-core';
 
 // Uses real local Auth/PostgREST/Edge/Storage, with no synthetic API responses.
-export async function verifyAcceptanceBrowser({status,session,api,sql,token}){
- const root=resolve(import.meta.dirname,'../..');
+export async function verifyAcceptanceBrowser({status,session,api,sql,token,pageRoot,shipmentSlug="shipments",proofLabel="NEW UI"}){
+ const root=pageRoot||resolve(import.meta.dirname,'../..');
  const path=[process.env.TEST_BROWSER_PATH,'/usr/bin/chromium','/usr/bin/google-chrome','/usr/bin/google-chrome-stable'].filter(Boolean).find(existsSync);
  assert.ok(path,'Acceptance browser required');
  const apiUrl=new URL(status.API_URL);
@@ -21,6 +21,7 @@ export async function verifyAcceptanceBrowser({status,session,api,sql,token}){
  const server=createServer(async(req,res)=>{
   const pathname=new URL(req.url,'http://127.0.0.1').pathname;
   if(pathname==='/config.local.js'){res.writeHead(200,{'Content-Type':'text/javascript'});return res.end('export default '+JSON.stringify({supabaseUrl:status.API_URL,supabaseKey:status.ANON_KEY,storageBucket:'factory-photos-test'}));}
+  if(pageRoot&&pathname==='/config.js'){res.writeHead(200,{'Content-Type':'text/javascript'});return res.end('export async function resolveConfig(){return '+JSON.stringify({supabaseUrl:status.API_URL,supabaseKey:status.ANON_KEY,storageBucket:'factory-photos-test'})+'}');}
   const file=resolve(root,'.'+pathname);if(!file.startsWith(root+sep)){res.writeHead(403).end();return;}
   try{const body=await readFile(file);res.writeHead(200,{'Content-Type':extname(file)==='.html'?'text/html':'text/javascript'});res.end(body);}catch{res.writeHead(404).end();}
  });
@@ -42,6 +43,7 @@ export async function verifyAcceptanceBrowser({status,session,api,sql,token}){
     // The app forbids the production bucket name in test config. Map that test-only
     // alias to this disposable platform's baseline bucket; no remote traffic/policy changes.
     url.pathname=url.pathname.replace('/factory-photos-test/','/factory-photos/');
+    if(url.pathname==='/functions/v1/shipments')url.pathname='/functions/v1/'+shipmentSlug;
     return route.continue({url:url.href});
    }
    blocked.push(url.hostname);return route.abort();
@@ -71,7 +73,7 @@ export async function verifyAcceptanceBrowser({status,session,api,sql,token}){
   await page.locator('#tbody [data-edit]').click();await page.waitForFunction(()=>document.querySelector('#eGallery img')?.naturalWidth>0);await page.locator('#eNote').fill('Cancelled edit');await page.locator('#mCancel').click();assert.equal((await call('/functions/v1/shipments')).shipments[0].note,null);
   console.log('UI STEP processing, shipping and query');
   for(const next of ['處理中','完成待出貨','已出貨']){
-   const response=page.waitForResponse(r=>r.request().method()==='PATCH'&&new URL(r.url()).pathname==='/functions/v1/shipments');
+   const response=page.waitForResponse(r=>r.request().method()==='PATCH'&&['/functions/v1/shipments','/functions/v1/'+shipmentSlug].includes(new URL(r.url()).pathname));
    const select=await page.locator('#tbody .statusSel').elementHandle();
    await select.selectOption(next);assert.equal((await response).status(),200);
    await page.waitForFunction(el=>!el.isConnected,select);await select.dispose();
@@ -82,7 +84,7 @@ export async function verifyAcceptanceBrowser({status,session,api,sql,token}){
   const month=shipments[0].shipped_at.slice(5,7);await page.locator('#shipYear').selectOption(shipments[0].shipped_at.slice(0,4));await page.locator('#shipMonth').selectOption(month==='01'?'02':'01');assert.match(await page.locator('#tbody').innerText(),/沒有資料/);await page.locator('#shipMonth').selectOption(month);assert.match(await page.locator('#tbody').innerText(),/210/);
   await page.locator('#search').fill('Definitely absent');assert.match(await page.locator('#tbody').innerText(),/沒有資料/);assert.deepEqual(errors,[]);assert.deepEqual(blocked,[]);assert.deepEqual(alerts,[]);
   await context.close();
-  console.log('PASS real browser: product/photo double-click → future price/history → intake/photo double-click → processing → ready → shipped → amount/date/search; cancel/back; no remote requests');
+  console.log(proofLabel+' PASS real browser: product/photo double-click → future price/history → intake/photo double-click → processing → ready → shipped → amount/date/search; cancel/back; no remote requests');
  }finally{
   await browser?.close();await new Promise(r=>server.close(r));
   // The caller destroys this entire disposable platform on any failure; exact cleanup on success.

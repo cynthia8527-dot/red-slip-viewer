@@ -11,6 +11,8 @@ import { exerciseWorkflow } from '../upgrade/workflow.mjs';
 import { runVolume } from '../volume/workload.mjs';
 import { runRecovery } from '../recovery/rehearsal.mjs';
 import { verifyAcceptanceBrowser } from './browser-acceptance.mjs';
+import {installBackupFixture,verifyBackupFixture,removeTestSchedules} from '../release/backup-preservation.mjs';
+import {prepareRollback,verifyRollback} from '../release/rollback.mjs';
 const recoveryMode=process.argv.includes('--recovery');
 const volumeMode=process.argv.includes('--volume');
 const upgradeMode=process.argv.includes('--upgrade');
@@ -26,7 +28,7 @@ function run(command, args, input) {
   return r.stdout;
 }
 const supa = (...args) => run(cli, [...args, '--workdir', work]);
-let container, edge;
+let container, edge, rollbackDirectory;
 const sql = text => run('docker', ['exec', '-i', container, 'psql', '-X', '-U', 'postgres', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-At'], text);
 try {
   verifyManifest();
@@ -47,8 +49,12 @@ try {
     sql(read('database/rebuild/'+entry.file));
     console.log('REPLAY PASS '+entry.file);
   }
-  if(upgradeMode) await rehearse(async text=>sql(text),message=>console.log('UPGRADE PASS '+message));
-  sql(read('tests/rebuild/schema-regression.sql'));
+  if(upgradeMode){
+    const before=await installBackupFixture(sql);
+    await rehearse(async text=>sql(text),message=>console.log('UPGRADE PASS '+message));
+    await verifyBackupFixture(sql,before);await removeTestSchedules(sql);
+  }
+  sql((upgradeMode?"set test.observed_backup_fixture='on';\n":'')+read('tests/rebuild/schema-regression.sql'));
   console.log('PASS catalog/RLS/grants/RPC/index regression');
   sql("update storage.buckets set id='factory-photos-test',name='factory-photos-test' where id='factory-photos';");
   sql(read('tests/cloud/test_project_guard.sql'));
@@ -67,6 +73,7 @@ try {
   };
   if(upgradeMode||volumeMode){
     cpSync(new URL('../../supabase/functions/',import.meta.url),join(work,'supabase/functions'),{recursive:true});
+    if(upgradeMode) rollbackDirectory=prepareRollback(work);
     const map=join(work,'supabase/functions/import_map.json');
     writeFileSync(map,JSON.stringify({imports:{'npm:@supabase/supabase-js@2':'npm:@supabase/supabase-js@2.117.2','npm:@supabase/supabase-js@2/cors':'npm:@supabase/supabase-js@2.117.2/cors'}}));
     edge=spawn(cli,['functions','serve','--import-map',map,'--workdir',work],{stdio:'ignore',detached:true});
@@ -93,7 +100,10 @@ try {
   if(upgradeMode||volumeMode) await exerciseWorkflow({api,sql,token,productId:product.product.id});
   sql(`delete from public.vendor_prices where product_id='${product.product.id}'; delete from public.products where id='${product.product.id}';`);
   console.log('PASS real PostgREST RPC creation and idempotent retry');
-  if(upgradeMode) await verifyAcceptanceBrowser({status,session:login,api,sql,token});
+  if(upgradeMode){
+    await verifyAcceptanceBrowser({status,session:login,api,sql,token});
+    await verifyRollback({status,session:login,api,sql,token,directory:rollbackDirectory});
+  }
   const object = `products/${randomUUID()}.png`;
   const bytes = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jZl8AAAAASUVORK5CYII=', 'base64');
   await api('/storage/v1/object/factory-photos/'+object, {token,method:'POST',bytes});
