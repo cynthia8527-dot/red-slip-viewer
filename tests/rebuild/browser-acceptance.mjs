@@ -87,10 +87,12 @@ export async function verifyAcceptanceBrowser({status,session,api,sql,token}){
   await browser?.close();await new Promise(r=>server.close(r));
   // The caller destroys this entire disposable platform on any failure; exact cleanup on success.
   if(shipmentId){
-   assert.match(shipmentId,/^[0-9a-f-]{36}$/);assert.match(groupId,/^[0-9a-f-]{36}$/);
+   assert.match(shipmentId,/^[0-9a-f-]{36}$/);
    await call('/functions/v1/shipments',{method:'PATCH',body:{action:'void',id:shipmentId}});
    await call('/functions/v1/shipments',{method:'DELETE',body:{id:shipmentId}});
-   await sql(`delete from private.shipment_deletion_jobs where shipment_id='${shipmentId}'; delete from public.intake_groups where id='${groupId}';`);
+   await sql(`delete from private.shipment_deletion_jobs where shipment_id='${shipmentId}';`);
+   // The UI may create an ungrouped shipment; delete only a group actually returned.
+   if(groupId){assert.match(groupId,/^[0-9a-f-]{36}$/);await sql(`delete from public.intake_groups where id='${groupId}';`);}
   }
   if(productId){
    assert.match(productId,/^[0-9a-f-]{36}$/);
