@@ -84,3 +84,14 @@ test('T032 recent missing object stays pending while the original upload may fin
   assert.deepEqual(linked, { completed: 1, missing: 0, pending: 0 });
   assert.equal(attempts, 2);
 });
+
+test('retired photo path is terminal even during upload grace; reupload must use a new path', async () => {
+  const saved = storage();
+  rememberProductPhoto(saved, job);
+  const createdAt = pendingProductPhotos(saved, 'admin-a')[0].createdAt;
+  const result = await recoverProductPhotos(saved, 'admin-a', async () => {
+    throw Object.assign(new Error('Product photo path is retired; upload to a new path'), { status: 409 });
+  }, createdAt + 1);
+  assert.deepEqual(result, { completed: 0, missing: 1, pending: 0 });
+  assert.deepEqual(pendingProductPhotos(saved, 'admin-a'), []);
+});

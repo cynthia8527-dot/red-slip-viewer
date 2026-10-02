@@ -20,9 +20,14 @@ async function requireFactoryAdmin(req: Request) {
   return profile?.role === 'admin' ? user : null
 }
 
-async function removeUploadedObject(path: string) {
+async function removeUploadedObject(id: string, path: string) {
+  // A committed DB retirement prevents a later request from relinking this path.
+  // Fail closed: a missing RPC/permission error must never fall through to Storage.
+  const claim = await admin.rpc('claim_product_photo_cleanup', { p_product_id: id, p_storage_path: path })
+  if (claim.error) throw claim.error
+  if (claim.data !== true) return 'referenced'
   const { error } = await admin.storage.from('factory-photos').remove([path])
-  return error
+  return error ? 'failed' : null
 }
 
 // HEAD-based exists() can lose the JSON NoSuchKey body on an HTTP 400.
@@ -54,13 +59,7 @@ Deno.serve(async (req) => {
 
     const getProduct = async () => admin.from('products')
       .select('id,reference_photo_path').eq('id', id).maybeSingle()
-    const cleanupPreviousPhoto = async () => {
-      // A second photo change may have made the old path current again.
-      const current = await getProduct()
-      if (current.error) throw current.error
-      if (current.data?.reference_photo_path === previousPath) return 'referenced'
-      return await removeUploadedObject(previousPath!) ? 'failed' : null
-    }
+    const cleanupPreviousPhoto = () => removeUploadedObject(id, previousPath!)
     const firstLookup = await getProduct()
     if (firstLookup.error) throw firstLookup.error
     if (!firstLookup.data) return json({ error: 'product not found' }, 404)
@@ -73,8 +72,8 @@ Deno.serve(async (req) => {
       return json({ product: firstLookup.data, replayed: true, previous_cleanup_pending: false })
     }
     if ((firstLookup.data.reference_photo_path || null) !== previousPath) {
-      const cleanupError = await removeUploadedObject(storagePath)
-      if (cleanupError) return json({ error: 'product changed and uploaded object cleanup failed' }, 500)
+      const cleanupError = await removeUploadedObject(id, storagePath)
+      if (cleanupError === 'failed') return json({ error: 'product changed and uploaded object cleanup failed' }, 500)
       return json({ error: 'product photo changed before this upload was linked' }, 409)
     }
 
@@ -92,8 +91,9 @@ Deno.serve(async (req) => {
       if (retryLookup.data?.reference_photo_path === storagePath) {
         return json({ product: retryLookup.data, replayed: true, previous_cleanup_pending: false })
       }
-      const cleanupError = await removeUploadedObject(storagePath)
-      if (cleanupError) return json({ error: 'photo link failed and uploaded object cleanup failed' }, 500)
+      const cleanupError = await removeUploadedObject(id, storagePath)
+      if (cleanupError === 'failed') return json({ error: 'photo link failed and uploaded object cleanup failed' }, 500)
+      if (linked.error?.code === '22023') return json({ error: linked.error.message }, 409)
       if (linked.error) throw linked.error
       return json({ error: 'product photo changed before this upload was linked' }, 409)
     }

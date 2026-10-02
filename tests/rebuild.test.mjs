@@ -40,6 +40,7 @@ test('Empty disposable PostgreSQL replays every business migration and exercises
         catch (error) { await db.exec('rollback'); throw error; }
       });
     }
+    await db.exec(read('./longevity/cleanup.sql'));
     await t.test('all synthetic business/account/deletion fixtures removed or rolled back', async () => {
       assert.equal((await db.query('select count(*)::int as n from storage.objects')).rows[0].n, 0);
       const tables = (await db.query("select schemaname,tablename from pg_tables where schemaname in ('public','private','auth')")).rows;

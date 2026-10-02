@@ -40,6 +40,13 @@ function productPhotoHandler(options = {}) {
         },
       };
     } },
+    async rpc(name,args) {
+      assert.equal(name,'claim_product_photo_cleanup');
+      assert.equal(args.p_product_id,id);
+      lookupCount++;
+      if (options.onLookup) referencePath = options.onLookup(lookupCount, referencePath);
+      return {data: referencePath !== args.p_storage_path,error:null};
+    },
     from(table) {
       if (table === 'profiles') return {
         select() { return this; }, eq() { return this; },

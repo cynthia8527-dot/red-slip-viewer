@@ -61,3 +61,14 @@ TEST_BROWSER_PATH=/usr/bin/chromium npm run test
 ## Full platform CI
 
 `.github/workflows/rebuild-platform.yml` runs `tests/rebuild/full-platform.mjs` on an ephemeral Ubuntu 24.04 runner using official Supabase CLI 2.118.0 and its pinned Docker platform images. A random unlinked project starts with no business migrations; the three exact manifested candidates replay through native PostgreSQL in order. It checks schema/RLS/grants, all 14 existing SQL regressions, actual Auth login, PostgREST anonymous denial and idempotent RPC, private Storage bytes/upload/delete, and zero fixture residue. CLI status credentials stay in process memory; no repository secrets or remote reset commands are used. Containers and volumes are stopped without backup in finally. The `fresh` matrix job does not exercise Edge Functions or a live browser. The separate `upgrade` matrix job now covers synthetic legacy-data preservation and real local Edge/API flows; see `../upgrade/README.md`. Historical inventory remains separately exit 2.
+
+
+## 2026-10-02 reliability follow-up
+
+The manifests now also include `20261002154901_guard_retired_requests_and_product_photos.sql`.
+Reconstruction replays it last. Legacy upgrade preserves the original bundle, then applies
+the hash-verified `followups` in order, each in its own transaction. Stop on any failure;
+do not deploy the new photo Edge before the cleanup-claim RPC exists. Preserve both private
+retirement tables across backups/restarts; test-only teardown is not a production purge policy.
+See `tests/longevity/FIX_REPORT_2026-10-02.md` and the updated release plan. No prior release
+approval or old CI SHA authorizes this new candidate.

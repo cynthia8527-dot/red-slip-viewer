@@ -61,6 +61,7 @@ try {
   for (const id of ['T008','T009','T010','T011','T012','T018','T019_legacy_writes','T021','T026','T027','T028','T029','T030','T031']) {
     sql(read(`tests/cloud/${id}.sql`)); console.log('PASS native PostgreSQL '+id);
   }
+  sql(read('tests/longevity/cleanup.sql'));
   sql("drop schema test_guard cascade; update storage.buckets set id='factory-photos',name='factory-photos' where id='factory-photos-test'; notify pgrst, 'reload schema';");
   const status = JSON.parse(supa('status', '-o', 'json'));
   const base = new URL(status.API_URL);
@@ -125,6 +126,7 @@ try {
   if(recoveryMode) await runRecovery({api,sql,token,container,accountId:account.id});
   await api('/auth/v1/logout?scope=global',{token,method:'POST'});
   await api('/auth/v1/admin/users/'+account.id,{method:'DELETE'});
+  sql(read('tests/longevity/cleanup.sql'));
   const tables = sql("select quote_ident(schemaname)||'.'||quote_ident(tablename) from pg_tables where schemaname in ('public','private') order by 1;").trim().split('\n');
   for (const table of [...tables,'auth.users','auth.sessions','auth.refresh_tokens','storage.objects']) assert.equal(sql(`select count(*) from ${table};`).trim(),'0',`cleanup ${table}`);
   console.log('PASS final cleanup: business rows, accounts, sessions, refresh tokens, objects all zero');

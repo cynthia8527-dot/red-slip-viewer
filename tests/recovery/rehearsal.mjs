@@ -22,7 +22,7 @@ export async function runRecovery({api,sql,token,container,accountId}) {
  };
  for(const tool of ['pg_dump','pg_restore']) console.log('RECOVERY TOOL '+native(tool,['--version']).toString().trim());
  const tables=sql("select quote_ident(schemaname)||'.'||quote_ident(tablename) from pg_tables where schemaname in ('public','private') order by 1;").trim().split('\n');
- assert.equal(tables.length,11,'known business table inventory');
+ assert.equal(tables.length,13,'known business table inventory');
  const capture=()=>Object.fromEntries(tables.map(table=>[table,sql(`select coalesce(jsonb_agg(j order by j::text),'[]'::jsonb) from (select to_jsonb(t) j from ${table} t) s;`).trim()]));
  const fingerprint=state=>digest(JSON.stringify(state));
  const initial=capture();
@@ -49,7 +49,7 @@ export async function runRecovery({api,sql,token,container,accountId}) {
  const damaged=new Map(photos);damaged.set(expectedPaths[0],Buffer.from('corrupted photo'));
  assert.throws(()=>verifyArchive(manifest,dump,damaged),/photo checksum/);
  console.log('RECOVERY PASS archive preflight rejects truncated dump, missing photo and corrupted photo');
- const wipe=()=>sql(`begin; delete from private.shipment_deletion_jobs; delete from public.shipment_photos; delete from public.shipments; delete from public.vendor_prices; delete from public.vendor_sites; delete from public.intake_groups; delete from public.products; delete from public.vendors; delete from public.dispatch_locations; delete from public.allowed_emails; delete from public.profiles; commit;`);
+ const wipe=()=>sql(`begin; delete from private.shipment_deletion_jobs; delete from public.shipment_photos; delete from public.shipments; delete from public.vendor_prices; delete from public.vendor_sites; delete from public.intake_groups; delete from public.products; delete from public.vendors; delete from public.dispatch_locations; delete from public.allowed_emails; delete from public.profiles; delete from private.retired_shipment_requests; delete from private.retired_product_photo_paths; commit;`);
  const restore=()=>{verifyArchive(manifest,dump,photos);native('pg_restore',['-U','postgres','-d','postgres','--data-only','--single-transaction','--exit-on-error','--no-owner','--no-privileges'],dump);};
  const audit=async()=>{
   assert.equal(fingerprint(capture()),fingerprint(before),'business row integrity');

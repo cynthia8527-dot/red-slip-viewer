@@ -20,5 +20,12 @@
       "sha256": "fb0a9baa4c77de751072e08494be86938219b4debc02145a213144220e4f041e",
       "transform": "remove standalone begin/commit lines; one enclosing transaction"
     }
+  ],
+  "followups": [
+    {
+      "path": "database/upgrade/supabase/migrations/20261002154901_guard_retired_requests_and_product_photos.sql",
+      "sha256": "40197777d30ec745b4275e82d42da388c8ecce2e52a4a365909b60754e145172",
+      "source": "supabase/migrations/20261002154901_guard_retired_requests_and_product_photos.sql"
+    }
   ]
 }

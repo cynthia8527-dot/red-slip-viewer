@@ -34,3 +34,14 @@ REBUILD_CLI=/path/to/pinned/supabase node tests/rebuild/full-platform.mjs --upgr
 ```
 
 The platform script accepts no remote database URL, never links a project, verifies an unused random local Docker project and empty public schema, and tears down without retaining volumes. No repository secrets are used. Local Docker image pulls may be blocked by registry Forbidden; only GitHub successful native-platform runs count as full-platform evidence.
+
+
+## 2026-10-02 reliability follow-up
+
+The manifests now also include `20261002154901_guard_retired_requests_and_product_photos.sql`.
+Reconstruction replays it last. Legacy upgrade preserves the original bundle, then applies
+the hash-verified `followups` in order, each in its own transaction. Stop on any failure;
+do not deploy the new photo Edge before the cleanup-claim RPC exists. Preserve both private
+retirement tables across backups/restarts; test-only teardown is not a production purge policy.
+See `tests/longevity/FIX_REPORT_2026-10-02.md` and the updated release plan. No prior release
+approval or old CI SHA authorizes this new candidate.

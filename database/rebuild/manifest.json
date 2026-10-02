@@ -142,6 +142,17 @@
           "mode": "after-test-guard"
         }
       ]
+    },
+    {
+      "file": "supabase/migrations/20261002154901_guard_retired_requests_and_product_photos.sql",
+      "sha256": "40197777d30ec745b4275e82d42da388c8ecce2e52a4a365909b60754e145172",
+      "sources": [
+        {
+          "path": "supabase/migrations/20261002154901_guard_retired_requests_and_product_photos.sql",
+          "sha256": "40197777d30ec745b4275e82d42da388c8ecce2e52a4a365909b60754e145172",
+          "mode": "verbatim"
+        }
+      ]
     }
   ],
   "explicit_dependencies": [

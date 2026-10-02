@@ -8,12 +8,20 @@ export const upgrade = JSON.parse(read('database/upgrade/manifest.json'));
 export function verifyUpgrade() {
   verifyManifest();
   for (const item of [upgrade.legacy_source, upgrade.candidate, ...upgrade.sources]) assert.equal(createHash('sha256').update(read(item.path)).digest('hex'),item.sha256,item.path);
+  for (const item of upgrade.followups || []) {
+    assert.equal(createHash('sha256').update(read(item.path)).digest('hex'),item.sha256,item.path);
+    assert.equal(read(item.path),read(item.source),'followup source mismatch');
+  }
   const candidate = read(upgrade.candidate.path);
   let offset=0;
   for (const source of upgrade.sources) {
     const content=read(source.path).split('\n').filter(l=>!['begin;','commit;'].includes(l.trim().toLowerCase())).join('\n').trim();
     const at=candidate.indexOf(content,offset);assert.ok(at>=offset,'candidate preserves upgrade source');offset=at+content.length;
   }
+}
+export async function applyFollowups(exec) {
+  verifyUpgrade();
+  for (const item of upgrade.followups || []) await exec(read(item.path));
 }
 export async function rehearse(exec, report=()=>{}) {
   verifyUpgrade();
@@ -40,6 +48,7 @@ export async function rehearse(exec, report=()=>{}) {
     report(`${name}: rejected, no partial schema or legacy data changes`);
   }
   await exec(read(upgrade.candidate.path));
+  await applyFollowups(exec);
   await exec(read('tests/upgrade/verify.sql'));
   await exec(read('tests/upgrade/permissions.sql'));
   report('upgrade preserves all legacy rows/IDs/relations/timestamps/70-unit-price/864.15-amount/grants/policies; legacy writes still work');

@@ -1,6 +1,10 @@
 # 更新前備份與退回方案（準備稿，沒有執行授權）
 
-2026-09-30；產品／升級候選基準 `b4c4cf72eb028a5269bb4d4812ff23df395d5760`。
+2026-10-02 高風險時序修正稿，接續已停止的候選 `724a8830ebf1a745d9a2c0c8a0fbf0cdb8e1768b`。
+**舊候選的任何核准不可套用到新 head。** 本稿所屬 PR #3 最新提交才是新候選；發布前須
+重新解析並核准 exact SHA（以父任務／GitHub 最終提交記錄為準），不得自行發布。
+本輪只獲准隔離修正、合成驗證及符合條件後保存草稿，未獲正式 DB／RPC／部署執行授權。
+跨年凌晨月份篩選按使用者要求暫緩；金額浮點尾數僅調查，計價／捨入規則未改。
 這份文件不是部署腳本。不得用 `database/rebuild` 空庫 baseline 更新既有資料庫。
 本輪只準備文件、核對候選；不匯出正式資料、不選目的地、不建立備份、不改權限、不部署。
 
@@ -73,11 +77,23 @@ Google Drive 繼續暫緩。
 
 ## 可審查的升級包
 
-- 唯一 DB 增量候選：`database/upgrade/supabase/migrations/20260930085010_upgrade_reconstructed_legacy_business.sql`。
+- DB 增量第 1 步（保留原交易／原內容）：`database/upgrade/supabase/migrations/20260930085010_upgrade_reconstructed_legacy_business.sql`。
   一個交易、5 秒 lock timeout；新增四個 nullable request 欄位、限制／索引、
   交易／防重／清理 RPC 與私有清理工作表。不是正式套用批准。
+- DB 增量第 2 步：`database/upgrade/supabase/migrations/20261002154901_guard_retired_requests_and_product_photos.sql`。
+  獨立交易、5 秒 lock timeout，依賴第 1 步；不得將兩步說成單一原子交易。
+  新增私有 `retired_shipment_requests` 與 `retired_product_photo_paths`、trigger 及
+  service_role-only `claim_product_photo_cleanup(uuid,text)`。第 2 步失敗會回滾它本身；
+  停止發布，保留已成功的第 1 步，不先刪欄位／資料回退。
+  新 RPC 為 SECURITY INVOKER；兩個私有 trigger 函式為受限 SECURITY DEFINER，僅執行
+  已獲 DML 權限操作的資料完整性保護，所有應用角色都沒有直接 EXECUTE 權限。
+  不新增帳號、金鑰、runner 規格或 workflow 權限。
 - Edge 僅 `supabase/functions/shipments/index.ts`、`supabase/functions/product-photos/index.ts`。
   不部署測試來源轉換器，不複製測試桶或測試環境設定。發布前須再審查依賴解析／import map。
+- 新 `product-photos` 必須等第 2 步完成才可上線；缺 RPC 時不會執行 Storage 刪除。
+  DB guard 安裝本身不能修好還在運作的舊照片 Edge；必須協調完整更新與舊分頁／請求窗口。
+  新照片只能使用全新路徑；已退休路徑不復用，網頁也須包含 `data/product-photo-pending.js`
+  的終止重試處理與 calculator 提示。
 - 網頁發布物必須由同一審核 SHA 建立，包含共用 `data/` 模組及 board/calculator/vendors/dispatch
   相依檔案；沿用正式設定，不把 CI 的 loopback 設定發布。
 - 新增物件和現有 v3 備份功能互不覆寫；但尚未演練「完整實際生產 schema 的副本」升級，
@@ -89,7 +105,9 @@ Google Drive 繼續暫緩。
   不在正式 DB 故意製造失敗來測試。
 - DB 成功但後端／網頁失敗：暫停繼續發布／寫入，按依賴將網頁及 Edge 恢復至已保存的
   **實際舊版本**；先在隔離環境驗證「舊程式＋新增後 schema」相容，再核准執行。
-  不先刪新欄位、索引或清理工作；那可能丟掉新資料與待清理證據。
+  不先刪新欄位、索引、清理工作或兩張 retirement 表；那可能丟掉資料並重新打開重送／換圖漏洞。
+  舊照片 Edge 不呼叫 cleanup claim，直接退回它會重現併發刪圖風險；不能把「舊網頁＋新 schema」
+  相容演練當成安全照片 rollback。需保留新照片後端，或在另行核准的回退方案中停止照片寫入。
 - 懷疑資料損壞：保留失敗後狀態，停止寫入，定位受影響範圍。還原 DB 必須配同截點照片。
   若截點後已有新交易，先規劃如何保留／核對它們，不能直接覆蓋整庫。
   破壞性還原、刪新物件、重設 Auth 或擴大權限都需要獨立批准。
@@ -106,3 +124,22 @@ Google Drive 繼續暫緩。
 - https://supabase.com/docs/guides/platform/backups
 - https://supabase.com/docs/guides/platform/migrating-within-supabase/backup-restore
 - 已驗證合成平台 CI：https://github.com/cynthia8527-dot/red-slip-viewer/actions/runs/36700582280
+
+
+## 2026-10-02 本輪證據與新增保留條件
+
+詳見 `tests/longevity/FIX_REPORT_2026-10-02.md` 與重現命令。原 100 項回歸維持通過，
+加上兩項高風險、五項安全／恢復與一項終止重試回歸；另有三 seed 年度狀態序列、
+原生 PostgreSQL 17.11 五種雙連線鎖交錯，以及半年資料升級後再操作半年。
+確切計數／耗時以該報告與最終 SHA 的 CI 結果為準，不沿用 724a883 的綠燈。
+全平台 Supabase／Storage 整合本輪尚未在本工作區重跑；既有平台腳本只加上候選及
+合成 retention teardown，未修改 runner、權限或部署設定。
+
+兩張 retirement 表是必要業務狀態，備份、還原與未來遷移都必須保留；不得因沒有
+貨件／照片關聯而清掉它們，也不可套任意 TTL。既有 v3 文字備份函式原樣保留，
+**不宣稱它已涵蓋新增 private 表**；正式更新前須確認核准的備份／復原包涵蓋這兩表。
+原生業務 dump 演練會納入 public/private，完整生產副本復原仍屬另一關卡。
+
+沒有追補安裝 guard 之前已刪除貨件的 request ID，因舊資料已不保留而無法憑空還原。
+Photo retirements 保護的是已走新版 claim 流程的刪除；管理員直接操作 Storage、舊 Edge
+或既存失聯圖片不會自動修復。仍無背景清理 worker；Storage 失敗維持待辦及原重試流程。

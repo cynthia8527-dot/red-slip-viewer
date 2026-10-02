@@ -43,7 +43,8 @@ export async function recoverProductPhotos(storage, userId, attach, now = Date.n
     } catch (error) {
       const recentUpload = Number.isFinite(job.createdAt) &&
         now - job.createdAt < PRODUCT_PHOTO_UPLOAD_GRACE_MS;
-      if (error?.status === 409 && /uploaded photo object not found/.test(error.message || '') && !recentUpload) {
+      const retiredPath = /Product photo path is retired/.test(error?.message || '');
+      if (error?.status === 409 && (retiredPath || (/uploaded photo object not found/.test(error.message || '') && !recentUpload))) {
         forgetProductPhoto(storage, job.path);
         result.missing++;
       } else result.pending++;
