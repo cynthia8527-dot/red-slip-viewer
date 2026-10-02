@@ -17,11 +17,11 @@ async function fixture(fn) {
   } finally {await db.close();}
 }
 const body={vendor_name:'Synthetic',item_name:'Synthetic',product_id:uuid(1),weight_kg:3,status:'已出貨'};
-test('L001 exact monetary snapshot: 0.10 × 3 must equal 0.30',()=>fixture(async db=>{
+test('L001 exact monetary snapshot: 0.10 × 3 rounds to whole-unit zero',()=>fixture(async db=>{
   const {send}=platform(db);
   assert.equal((await send('POST',body,uuid(10))).status,201);
-  const row=(await db.query('select calculated_amount_snapshot = 0.30 as exact, calculated_amount_snapshot::text as actual from public.shipments')).rows[0];
-  assert.equal(row.exact,true,`stored ${row.actual}, expected exact 0.30`);
+  const row=(await db.query('select calculated_amount_snapshot = 0 as exact, calculated_amount_snapshot::text as actual from public.shipments')).rows[0];
+  assert.equal(row.exact,true,`stored ${row.actual}, expected whole-unit 0`);
 }));
 test('L003 Taipei January shipment must appear in January/year filter at midnight',()=>{
   const source=readFileSync(new URL('../../board/index.html',import.meta.url),'utf8');

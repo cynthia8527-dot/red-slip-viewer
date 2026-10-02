@@ -100,7 +100,8 @@ export async function run(ops,{seed=1,onProgress=()=>{},failAt=null}={}) {
       if(!m.frozen)return null;
       const raw=BigInt(m.frozen.cents)*BigInt(m.grams);
       const minimum=BigInt(m.frozen.minimum||0)*1000n;
-      return raw>minimum?raw:minimum; // integer units of 1/100000 currency; no binary float oracle
+      const bounded=raw>minimum?raw:minimum;
+      return (bounded+50000n)/100000n; // independent whole-unit oracle; generated amounts are nonnegative
     };
     const snapshot=m=>({price:m.frozen?.cents/100,amount:amount(m)});
     async function verifyRow(m) {
@@ -119,14 +120,7 @@ export async function run(ops,{seed=1,onProgress=()=>{},failAt=null}={}) {
         assert.equal(row.minimum_charge_snapshot===null?null:Number(row.minimum_charge_snapshot),m.frozen.minimum===null?null:m.frozen.minimum/100,'frozen minimum changed');
         assert.equal(Number(row.unit_price_snapshot),expected.price,'price snapshot rewritten');
         assert.equal(new Date(row.shipped_at).toISOString(),m.shippedAt,'shipped timestamp rewritten');
-        // Approximate magnitude is checked here; EXACT decimal precision is a separate failing finding.
-        check(Math.abs(Number(row.calculated_amount_snapshot)-Number(expected.amount)/100000)<1e-9,'amount magnitude diverged');
-        const text=row.calculated_amount_snapshot;
-        const [whole,fraction='']=text.split('.');
-        const scaled=BigInt(whole)*10n**BigInt(fraction.length)+BigInt(fraction||0);
-        if(scaled*100000n!==expected.amount*10n**BigInt(fraction.length)) {
-          if(!precision.some(p=>p.key===m.key)) precision.push({key:m.key,actual:text,expectedNumerator:String(expected.amount),denominator:100000,weightKg:m.grams/1000,unitPrice:expected.price,step:executed});
-        }
+        assert.equal(BigInt(row.calculated_amount_snapshot),expected.amount,'whole-unit snapshot diverged');
       } else assert.equal(row.calculated_amount_snapshot,null,'unshipped amount unexpectedly frozen');
       if(m.group) {
         const group=(await db.query('select label from public.intake_groups where id=$1',[row.intake_group_id])).rows[0];

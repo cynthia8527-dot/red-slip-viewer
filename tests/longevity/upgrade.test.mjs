@@ -49,9 +49,8 @@ test('six months of accumulated rows survive failed/successful migration and six
       }
     }
     assert.equal((await db.query('select count(*)::int as n from public.shipments')).rows[0].n,288);
-    assert.equal((await db.query('select count(*)::int as n from public.shipments where abs(calculated_amount_snapshot - 864.15) > 0.000000001 or unit_price_snapshot <> 70')).rows[0].n,0);
-    // Exact precision is intentionally reported separately by L001; this checks magnitude and preservation.
-    console.log('UPGRADE amount precision mismatches:',(await db.query('select count(*)::int as n from public.shipments where calculated_amount_snapshot <> 864.15')).rows[0].n);
+    assert.equal((await db.query('select count(*)::int as n from public.shipments where create_request_id is not null and (calculated_amount_snapshot <> 864 or unit_price_snapshot <> 70)')).rows[0].n,0);
+    assert.equal((await db.query('select count(*)::int as n from public.shipments where create_request_id is null and calculated_amount_snapshot = 864.15')).rows[0].n,144);
     assert.equal((await db.query('select count(*)::int as n from public.shipment_photos')).rows[0].n,36);
     for(const row of before['public.shipments']) {
       const actual=(await db.query('select * from public.shipments where id=$1',[row.id])).rows[0];

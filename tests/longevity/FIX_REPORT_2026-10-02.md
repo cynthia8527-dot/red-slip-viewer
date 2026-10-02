@@ -1,3 +1,7 @@
+> Historical evidence: the later user-selected whole-unit money fix is documented in
+> [MONEY_REPORT_2026-10-02.md](MONEY_REPORT_2026-10-02.md). Earlier money failures below
+> describe their recorded candidate, not the current implementation.
+
 # 兩项高風險修正驗證
 
 **本輪批准範圍完成：刪除後舊請求復活、並發換圖誤刪。相關測試通過；不是全產品零風險。**

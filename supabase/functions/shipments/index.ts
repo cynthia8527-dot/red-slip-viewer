@@ -60,6 +60,41 @@ function requestId(req: Request) {
   return provided
 }
 
+// New shipment snapshots use whole currency units, with Excel-style ties away from zero.
+// Decimal operands are multiplied as integers before rounding; no binary multiplication.
+function decimalParts(value: number | string) {
+  const match = String(value).match(/^([+-]?)(\d+)(?:\.(\d*))?(?:e([+-]?\d+))?$/i)
+  if (!match) throw new Error('Invalid decimal amount')
+  const fraction = match[3] || ''
+  const scale = fraction.length - Number(match[4] || 0)
+  let numerator = BigInt(match[2] + fraction) * (match[1] === '-' ? -1n : 1n)
+  if (scale < 0) numerator *= 10n ** BigInt(-scale)
+  return { numerator, denominator: 10n ** BigInt(Math.max(0, scale)) }
+}
+
+function roundWholeAmount(numerator: bigint, denominator: bigint) {
+  const absolute = numerator < 0n ? -numerator : numerator
+  const rounded = absolute / denominator + (absolute % denominator * 2n >= denominator ? 1n : 0n)
+  return numerator < 0n ? -rounded : rounded
+}
+
+function shipmentWholeAmount(price: number | string, weight: number | string, minimum: number | string | null) {
+  const p = decimalParts(price), w = decimalParts(weight)
+  let numerator = p.numerator * w.numerator, denominator = p.denominator * w.denominator
+  // Preserve the existing minimum-charge rule, then round the resulting line amount.
+  if (minimum != null) {
+    const m = decimalParts(minimum)
+    if (m.numerator * denominator > numerator * m.denominator) {
+      numerator = m.numerator
+      denominator = m.denominator
+    }
+  }
+  const rounded = roundWholeAmount(numerator, denominator)
+  // JSON cannot encode BigInt. Numeric text keeps large values exact on their way to SQL numeric.
+  return rounded > BigInt(Number.MAX_SAFE_INTEGER) || rounded < BigInt(Number.MIN_SAFE_INTEGER)
+    ? rounded.toString() : Number(rounded)
+}
+
 async function priceSnapshot(vendorId: unknown, vendorName: unknown, productId: unknown, weight: unknown) {
   const vendor = String(vendorName || '').trim()
   const vendorMasterId = String(vendorId || '').trim()
@@ -103,10 +138,9 @@ async function priceSnapshot(vendorId: unknown, vendorName: unknown, productId: 
   const unitPrice = data.unit_price == null ? null : Number(data.unit_price)
   const minimum = data.minimum_charge == null ? null : Number(data.minimum_charge)
   const w = weight == null || weight === '' ? null : Number(weight)
-  let amount: number | null = null
+  let amount: number | string | null = null
   if (unitPrice != null && Number.isFinite(unitPrice) && w != null && Number.isFinite(w) && isKgUnit(data.unit)) {
-    amount = unitPrice * w
-    if (minimum != null && Number.isFinite(minimum)) amount = Math.max(amount, minimum)
+    amount = shipmentWholeAmount(data.unit_price, w, minimum != null && Number.isFinite(minimum) ? data.minimum_charge : null)
   }
   return {
     unit_price_snapshot: unitPrice,

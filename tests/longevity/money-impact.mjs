@@ -13,7 +13,7 @@ try {
   const start=source.indexOf('function amountSnapshotText('),end=source.indexOf('function taipeiYearMonth(',start);
   const context={};runInNewContext(source.slice(start,end)+';globalThis.format=amountSnapshotText;',context);
   const {send}=platform(db);
-  for(const [i,price,weight,exact] of [[10,'0.10',3,'0.30'],[11,'70.00',12.345,'864.15']]) {
+  for(const [i,price,weight,exact] of [[10,'0.10',3,'0'],[11,'70.00',12.345,'864']]) {
     await db.query('delete from public.vendor_prices');
     await db.query("insert into public.vendor_prices(vendor_name,product_id,unit_price,effective_date) values ('Synthetic',$1,$2,'2027-01-01')",[uuid(1),price]);
     const result=await send('POST',{vendor_name:'Synthetic',item_name:'Synthetic',product_id:uuid(1),weight_kg:weight,status:'已出貨'},uuid(i));

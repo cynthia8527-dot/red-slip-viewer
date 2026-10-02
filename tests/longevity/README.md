@@ -1,10 +1,12 @@
 # Accelerated operating-year tests and scoped reliability fixes
 
 Starting candidate: `724a8830ebf1a745d9a2c0c8a0fbf0cdb8e1768b`, draft PR #3.
-See `FIX_REPORT_2026-10-02.md` for the current scoped result. `REPORT_2026-10-02.md`
+See `MONEY_REPORT_2026-10-02.md` for the current whole-unit pricing result and
+`FIX_REPORT_2026-10-02.md` for the earlier reliability fixes. `REPORT_2026-10-02.md`
 is the historical investigation before fixes. No production data or deployment was touched.
-The deletion-retry and concurrent-photo issues are fixed in the candidate; exact monetary
-precision and midnight calendar filtering remain explicit known limitations.
+The deletion-retry and concurrent-photo issues are fixed. New shipment snapshots use
+exact decimal multiplication followed by whole-unit rounding; historical snapshots are
+preserved. Midnight calendar filtering remains explicitly deferred.
 
 ## Reproduce
 
@@ -19,14 +21,13 @@ node --test --test-reporter=tap tests/longevity/upgrade.test.mjs
 node tests/longevity/money-impact.mjs
 ```
 
-`npm test`: 108 pass / zero fail / zero skip (original 100 plus eight regressions).
-The three-seed annual command deliberately still exits **1** for exact money; its
-other model invariants, including repeated deleted-key rejection and photo races, pass.
-`high-risk` + `guards`: seven passing tests. `risks.test.mjs`: two strict failures,
-L001 exact money and L003 midnight calendar filtering, deliberately outside the
-approved fixes. They are not converted into green expected-failure tests. Upgrade
-passes preservation and separately prints 144 exact-money mismatches. A structural
-pass does not certify precision. No workflow, runner, permission or credential changed.
+`npm test`: 112 pass / zero fail / zero skip (original 100 plus twelve regressions).
+The three-seed annual command now asserts exact whole-unit amounts against an independent
+integer model. `high-risk` + `guards`: seven passing tests. `risks.test.mjs`: L001 now
+passes under the user's selected whole-unit policy; L003 remains a strict failing test
+outside the approved scope. These are not converted into green expected-failure tests.
+The upgrade test preserves 144 legacy decimal snapshots and checks 144 new whole-unit
+snapshots. No workflow, runner, permission or credential changed.
 
 For real PostgreSQL lock contention (five actual two-connection waits):
 
@@ -44,7 +45,7 @@ Single-seed/replay commands:
 ```sh
 node tests/longevity/run.mjs --seed 34087
 node tests/longevity/run.mjs --seed 34087 --trace tests/tmp/longevity/failure-34087.json --shrink
-node --test --test-name-pattern=L002 tests/longevity/risks.test.mjs
+node --test --test-name-pattern=L002 tests/longevity/high-risk.test.mjs
 ```
 
 `--trace` requires a generated failure trace. Unexpected sequence failures save the
@@ -99,9 +100,9 @@ they are not a claim of monotonically elapsed time.
 Independent model tracks each logical request's live/deleted state, group, void
 state, shipped time and frozen price. Every touched row and every monthly complete
 list is compared. Money oracle uses integer cents × integer grams, units of
-1/100000 currency (plus minimum charge), not floating multiplication. Tests retain
-all exact mismatches and fail overall. Numerical magnitude tolerance (1e-9) is a
-separate check, never an exact-money PASS. Raw frozen fields must additionally be
+1/100000 currency before applying the selected whole-unit rounding (plus minimum
+charge), not floating multiplication. Exact amount mismatches immediately fail with
+a reproducible operation prefix; no numerical tolerance is used. Raw frozen fields must additionally be
 byte/value-identical across later operations; there is no tolerance for rewriting
 stored snapshots. No cash ledger/payment feature exists in this test scope.
 
@@ -122,9 +123,8 @@ photo references, absence of untracked objects, completed job paths and attempts
 
 L002/L004 now pass in `high-risk.test.mjs`: a deleted request returns 409 without
 recreation; relinking a retired photo returns 409 and the current image survives.
-L001/L003 still assert the desired safe result and FAIL in `risks.test.mjs`.
-Monetary rounding still needs a defined scale/rule; calendar filtering was explicitly
-deferred. See the fix report for SQL security, retention and rollback requirements.
+L001 now passes with whole-unit rounding; L003 still asserts the desired safe result
+and FAILS in `risks.test.mjs`. Calendar filtering was explicitly deferred. See the fix report for SQL security, retention and rollback requirements.
 
 ## Coverage not duplicated / limits
 
@@ -146,7 +146,7 @@ approval blockers were neither retried nor bypassed.
 ## Added monthly guard coverage
 
 The same seeds/5,654 generated operations retain their original branches and monetary
-oracle. Each deleted-shipment retry now also resends its consumed create key and must
+oracle structure (now using the selected whole-unit result). Each deleted-shipment retry now also resends its consumed create key and must
 receive 409. Each month performs a product-photo replacement: alternating a deliberately
 interleaved old-path relink (rejected) and a Storage cleanup failure/retry. Audits include
 the one current product image and durable request retirements. Retired paths/keys survive
