@@ -15,3 +15,7 @@ npm run test
 GitHub 每次推送、提出合併請求或手動啟動時，也會執行 `.github/workflows/offline-tests.yml`。該工作流程只有唯讀的倉庫權限，不傳入 Supabase／雲端憑證；綠燈表示離線回歸測試通過，**不**代表真實資料庫整合測試已完成。`npm run test` 仍明確拒絕遠端 Supabase 環境變數，避免把離線測試誤當雲端整合測試。
 
 空庫業務重建回歸：`npm run test:rebuild`，也包含在完整 `npm run test`。來源、順序、平台介面替身與 Docker 阻礙詳見 [重建候選說明](../database/rebuild/README.md)。歷史 migration inventory 仍保留退出碼 2，不因有後補候選就改寫歷史完整性。
+
+2026-10-02 驗收補充：`tests/ui-acceptance.test.mjs` 已納入 `npm test`，以真實頁面及
+攔截的合成 API 回應串商品／價格生效與歷史／進貨／處理／出貨／年月搜尋，另驗證
+取消、返回、連點及更新失敗重試；不能作為真實 Auth／DB／Storage 證明。
