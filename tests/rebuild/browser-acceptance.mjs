@@ -53,7 +53,7 @@ export async function verifyAcceptanceBrowser({status,session,api,sql,token}){
   assert.equal((await call('/rest/v1/vendor_prices?vendor_id=eq.'+vendorId)).length,0);
   await page.locator('#backVendors').click();await page.locator(`[data-vendor-id="${vendorId}"]`).click();await page.locator('#newProduct').click();
   await page.locator('#pName').fill(name);await page.locator('#pMaterial').fill('SK5');await page.locator('#pProcess').fill('研磨');await page.locator('#npPrice').fill('70');await page.locator('#npDate').fill('2000-01-01');
-  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jZl8AAAAASUVORK5CYII=','base64');
+  const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAL0lEQVR4nO3OIQEAAAgDsCd5/2TUgBiYifll2v0UAQEBAQEBAQEBAQEBAQGB78ABwCWEeSOVA7sAAAAASUVORK5CYII=','base64');
   await page.locator('#pPhoto').setInputFiles({name:'synthetic.png',mimeType:'image/png',buffer:png});await page.waitForFunction(()=>!document.getElementById('cropState').textContent.includes('正在'));
   await page.locator('#saveProduct').evaluate(b=>{b.click();b.click();});await page.locator('#grid .card').waitFor({timeout:30000});
   const prices=await call('/rest/v1/vendor_prices?vendor_id=eq.'+vendorId);assert.equal(prices.length,1);productId=prices[0].product_id;
