@@ -21,7 +21,9 @@ for (const page of ['board', 'calculator', 'dispatch', 'vendors', 'account']) {
 }
 console.log('PRE-FLIGHT PASS: no test target or data page points directly at main Supabase.');
 // Data engines are in-memory SQLite/PostgreSQL; browser requests are loopback/mock only.
-const result = spawnSync(process.execPath, ['--test', '--test-reporter=tap',
+// Browser processes and PGlite instances compete for a standard runner's CPU/RAM.
+// Run files sequentially; retain individual test deadlines and every assertion.
+const result = spawnSync(process.execPath, ['--test', '--test-concurrency=1', '--test-reporter=tap',
   'tests/vendor-import.test.mjs', 'tests/taipei-period.test.mjs', 'tests/weekend-browser.test.mjs', 'tests/longevity/money.test.mjs', 'tests/longevity/high-risk.test.mjs', 'tests/longevity/guards.test.mjs', 'tests/release/structure.test.mjs', 'tests/recovery/integrity.test.mjs', 'tests/volume/edge-pagination.test.mjs', 'tests/volume/pagination.test.mjs', 'tests/upgrade.test.mjs', 'tests/rebuild.test.mjs', 'tests/storage-probe.test.mjs', 'tests/config.test.mjs', 'tests/cloud-config.test.mjs', 'tests/migration-inventory.test.mjs', 'tests/postgres-migration.test.mjs', 'tests/edge-function.test.mjs', 'tests/product-photo-edge.test.mjs', 'tests/product-photo-pending.test.mjs', 'tests/shipment-photo-pending.test.mjs', 'tests/pricing.test.mjs', 'tests/data.test.mjs', 'tests/smoke.test.mjs', 'tests/browser.test.mjs', 'tests/ui-acceptance.test.mjs'],
   { cwd: root, encoding: 'utf8', env: { ...process.env, TEST_MODE: 'offline' } });
 process.stdout.write(result.stdout || '');
