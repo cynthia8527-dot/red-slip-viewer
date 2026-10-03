@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {rebuild} from './rebuild/replay.mjs';
 import {vendorImportRows} from '../data/vendor-import.js';
 import * as XLSX from 'xlsx';
+import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
 const admin='40000000-0000-4000-8000-000000000001';
 const rows=vendorImportRows([[],['A','總廠','Company','月結','123', '聯絡人','00123',null,'原址',null,'備註',null,'狀態'],['A-P2','二廠','Company',null,'123',null,null,null,'分廠址']]);
 test('workbook mapping preserves text, mail, inactive status and limits',()=>{
@@ -54,4 +56,31 @@ test('atomic import: failure rolls back parent and site; retries skip duplicates
   for(const role of ['anon','service_role'])assert.equal((await db.query("select has_function_privilege($1,'public.import_vendor_workbook(jsonb)','execute') ok",[role])).rows[0].ok,false);
   assert.equal((await db.query("select prosecdef from pg_proc where oid='public.import_vendor_workbook(jsonb)'::regprocedure")).rows[0].prosecdef,false);
  }finally{await db.close()}
+});
+
+test('official patched browser distribution and locked test package have verified provenance',async()=>{
+ const root=new URL('../vendor/sheetjs/',import.meta.url),source=JSON.parse(readFileSync(new URL('source.json',root)));
+ const sha=p=>createHash('sha256').update(readFileSync(new URL(p,root))).digest('hex');
+ assert.equal(source.source,'https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz');
+ assert.equal(source.sha256,'8dc73fc3b00203e72d176e85b50938627c7b086e607c682e8d3c22c02bb99fe8');
+ assert.equal(sha('xlsx-0.20.3.tgz'),source.sha256);
+ for(const [path,hash] of Object.entries(source.members_sha256))assert.equal(sha(path),hash,path);
+ const browser=await import('../vendor/sheetjs/xlsx.mjs');browser.set_cptable(await import('../vendor/sheetjs/dist/cpexcel.full.mjs'));
+ assert.equal(browser.version,'0.20.3');assert.equal(XLSX.version,browser.version);
+ // The upstream BIFF5 writer fixes codepage 1252. Construct an independent
+ // Big5 fixture by changing equal-length label bytes in its CFB Book stream.
+ const book=XLSX.utils.book_new();XLSX.utils.book_append_sheet(book,XLSX.utils.aoa_to_sheet([['code','name'],['0001','XXXXXXXX']]),'Sheet1');
+ const binary=XLSX.write(book,{type:'buffer',bookType:'biff5'}),cfb=XLSX.CFB.read(binary,{type:'buffer'});
+ const stream=XLSX.CFB.find(cfb,'/Book').content;
+ let cp=false,label=false;
+ for(let i=0;i+4<=stream.length;){const type=stream.readUInt16LE(i),length=stream.readUInt16LE(i+2),data=i+4;
+  if(type===0x42){stream.writeUInt16LE(950,data);cp=true}
+  if(type===0x204&&stream.readUInt16LE(data)===1&&stream.readUInt16LE(data+2)===1){
+   Buffer.from([0xbb,0x4f,0xa5,0x5f,0xbc,0x74,0xb0,0xd3]).copy(stream,data+8);label=true;
+  }
+  i=data+length;
+ }
+ assert.ok(cp&&label);
+ const parsed=browser.read(XLSX.CFB.write(cfb,{type:'buffer'}),{type:'array'});
+ assert.deepEqual(browser.utils.sheet_to_json(parsed.Sheets.Sheet1,{header:1}),[['code','name'],['0001','臺北廠商']]);
 });

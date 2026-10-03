@@ -53,7 +53,8 @@ async function importWorkbook(file){
  const state=$('importState');state.textContent='正在讀取 Excel…';
  let writeAttempted=false;
  try{
-  const XLSX=await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm');
+  const XLSX=await import('../vendor/sheetjs/xlsx.mjs');
+  XLSX.set_cptable(await import('../vendor/sheetjs/dist/cpexcel.full.mjs'));
   const book=XLSX.read(await file.arrayBuffer(),{type:'array'});
   const main=book.Sheets['客戶-通訊錄']||book.Sheets[book.SheetNames[0]];
   const read=sheet=>sheet?XLSX.utils.sheet_to_json(sheet,{header:1,defval:null,raw:false}):[];

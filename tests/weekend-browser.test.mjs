@@ -6,8 +6,6 @@ import {resolve,extname,sep} from 'node:path';
 import {chromium} from 'playwright-core';
 import {rebuild} from './rebuild/replay.mjs';
 import * as XLSX from 'xlsx';
-import {createRequire} from 'node:module';
-const require=createRequire(import.meta.url);
 // Real HTML, XLSX decoder and SQL for imports. Auth is an explicit double.
 const root=resolve(import.meta.dirname,'..'),uid='40000000-0000-4000-8000-000000000001';
 const sdk=`export function createClient(){
@@ -43,7 +41,7 @@ async function harness(fn){
    }catch(e){res.statusCode=400;return res.end(JSON.stringify({message:e.message}))}
   }
   const file=resolve(root,'.'+path+(path.endsWith('/')?'index.html':''));if(!file.startsWith(root+sep)){res.writeHead(403).end();return}
-  try{const body=await readFile(file);res.setHeader('Content-Type',extname(file)==='.js'?'text/javascript':'text/html');res.end(body)}catch{res.writeHead(404).end()}
+  try{const body=await readFile(file);res.setHeader('Content-Type',['.js','.mjs'].includes(extname(file))?'text/javascript':'text/html');res.end(body)}catch{res.writeHead(404).end()}
  });
  try{
   await db.query("insert into auth.users values($1,'synthetic@example.invalid')",[uid]);await db.query("insert into public.profiles(user_id,email,role,active) values($1,'synthetic@example.invalid','admin',true)",[uid]);await db.query("select set_config('request.jwt.claim.sub',$1,false)",[uid]);await db.exec('set role authenticated');
@@ -52,7 +50,6 @@ async function harness(fn){
   const context=await browser.newContext({timezoneId:'America/Los_Angeles'}),errors=[],blocked=[];
   await context.route('**/*',route=>{const u=new URL(route.request().url());
    if(u.hostname==='esm.sh')return route.fulfill({contentType:'text/javascript',body:sdk});
-   if(u.hostname==='cdn.jsdelivr.net')return route.fulfill({contentType:'text/javascript',path:require.resolve('xlsx/xlsx.mjs')});
    if(u.origin===origin)return route.continue();
    if(u.origin==='http://127.0.0.1:54321'&&u.pathname==='/functions/v1/shipments')return route.fulfill({contentType:'application/json',headers:{'access-control-allow-origin':'*','access-control-allow-headers':'authorization'},body:JSON.stringify({shipments:state.shipments})});
    blocked.push(u.hostname);return route.abort();
@@ -70,6 +67,13 @@ test('browser import lost response and reload retry: real SQL leaves exactly one
  await page.reload();await page.locator('#app').waitFor();await page.locator('#importExcel').setInputFiles(file);await page.waitForFunction(()=>document.querySelector('#importState').textContent.includes('匯入完成'));
  assert.match(await page.locator('#importState').innerText(),/新增 0 家廠商、0 個據點；略過 2/);
  assert.equal((await db.query('select count(*)::int n from public.vendor_sites')).rows[0].n,1);assert.equal(state.imports,2);
+ // The browser must load the checked-in patched ESM and codepage table.
+ assert.equal(await page.evaluate(async()=> (await import('../vendor/sheetjs/xlsx.mjs')).version),'0.20.3');
+ const legacy={name:'synthetic.xls',mimeType:'application/vnd.ms-excel',buffer:XLSX.write(book,{type:'buffer',bookType:'xls'})};
+ await page.locator('#importExcel').setInputFiles(legacy);await page.waitForFunction(()=>document.querySelector('#importState').textContent.includes('略過 2'));assert.equal(state.imports,3);
+ await page.locator('#importExcel').setInputFiles({...file,name:'truncated.xlsx',buffer:file.buffer.subarray(0,64)});
+ await page.waitForFunction(()=>document.querySelector('#importState').textContent.includes('尚未開始寫入'));
+ assert.equal(state.imports,3,'invalid workbook must not reach SQL');
 }));
 test('browser password/fallback/reset interruption, expiry, retry and navigation (Auth double)',{timeout:60000},()=>harness(async({page,origin})=>{
  await page.goto(origin+'/board/');await page.locator('#loginEmail').fill('synthetic@example.invalid');await page.locator('#loginPassword').fill('Synthetic-only-123');
