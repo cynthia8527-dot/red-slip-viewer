@@ -1,0 +1,32 @@
+name: Full Supabase rebuild
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  rebuild:
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [fresh, upgrade, volume, recovery]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.19.0'
+          package-manager-cache: false
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.19.0
+          run_install: false
+      - run: pnpm install --frozen-lockfile
+      - name: Install official pinned Supabase CLI
+        run: npm install --prefix "$RUNNER_TEMP/rebuild-cli" --no-audit --no-fund supabase@2.118.0
+      - name: Full platform replay and integration checks
+        env:
+          REBUILD_CLI: ${{ runner.temp }}/rebuild-cli/node_modules/.bin/supabase
+        run: node tests/rebuild/full-platform.mjs --${{ matrix.mode }}

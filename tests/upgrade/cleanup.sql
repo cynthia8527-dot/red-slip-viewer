@@ -1,0 +1,10 @@
+delete from public.shipment_photos where id='a1100000-0000-4000-8000-000000000061';
+delete from public.shipments where id in ('a1100000-0000-4000-8000-000000000051','a1100000-0000-4000-8000-000000000052');
+delete from public.intake_groups where id='a1100000-0000-4000-8000-000000000041';
+delete from public.vendor_prices where id in ('a1100000-0000-4000-8000-000000000031','a1100000-0000-4000-8000-000000000032');
+delete from public.products where id='a1100000-0000-4000-8000-000000000011';
+delete from public.vendor_sites where id='a1100000-0000-4000-8000-000000000022';
+delete from public.vendors where id='a1100000-0000-4000-8000-000000000021';
+delete from public.dispatch_locations where id='a1100000-0000-4000-8000-000000000071';
+delete from auth.users where id in ('a1100000-0000-4000-8000-000000000001','a1100000-0000-4000-8000-000000000002','a1100000-0000-4000-8000-000000000003');
+drop schema upgrade_proof cascade;

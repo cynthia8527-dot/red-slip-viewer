@@ -84,6 +84,7 @@ h1{margin:0;font-size:28px}.sub{margin:4px 0 0;color:#667085;font-size:13px;line
 </section>
 
 <script type="module">
+import { readAllRows, byText } from '../data/pagination.js';
 import {createClient} from 'https://esm.sh/@supabase/supabase-js@2.116.0';
 import {resolveConfig} from '../config.js';
 const APP_CONFIG=await resolveConfig();
@@ -102,7 +103,7 @@ async function init(){
   $('authGate').hidden=true;$('app').hidden=false;await load();
 }
 async function load(){
-  const {data,error}=await supabase.from('dispatch_locations').select('*').order('sort_order').order('name');
+  const {data,error}=await readAllRows(()=>supabase.from('dispatch_locations').select('*'),(a,b)=>a.sort_order-b.sort_order||byText('name')(a,b));
   if(error){$('status').textContent='讀取失敗：'+error.message;return}
   rows=data||[];$('status').textContent=(isAdmin?rows.length:rows.filter(x=>x.is_active).length)+' 個叫車地點';render();
   if(selected){const fresh=rows.find(x=>x.id===selected.id);if(fresh)openDetail(fresh.id);else{$('detail').hidden=true;selected=null}}

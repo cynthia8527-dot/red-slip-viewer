@@ -4,12 +4,18 @@
   "packageManager": "pnpm@11.19.0",
   "type": "module",
   "scripts": {
-    "test": "node tests/run.mjs"
+    "test": "node tests/run.mjs",
+    "test:cloud": "node tests/cloud/authenticated-smoke.mjs",
+    "test:cloud:photos": "node tests/cloud/authenticated-product-photos.mjs",
+    "test:cloud:shipment-photos": "node tests/cloud/authenticated-shipment-photos.mjs",
+    "test:rebuild": "node --test --test-reporter=tap tests/rebuild.test.mjs"
   },
   "engines": {
     "node": ">=22.13.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "@supabase/supabase-js": "2.117.2",
     "playwright-core": "1.62.1"
   }
 }
