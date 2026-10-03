@@ -12,7 +12,7 @@ for (const name of envUrls) {
     process.exit(1);
   }
 }
-for (const page of ['board', 'calculator', 'dispatch', 'vendors']) {
+for (const page of ['board', 'calculator', 'dispatch', 'vendors', 'account']) {
   const source = readFileSync(resolve(root, page, 'index.html'), 'utf8');
   if (source.includes(mainId) || !source.includes("from '../config.js'")) {
     console.error(`PRE-FLIGHT FAIL: ${page} bypasses shared configuration or embeds main project ID.`);
@@ -22,7 +22,7 @@ for (const page of ['board', 'calculator', 'dispatch', 'vendors']) {
 console.log('PRE-FLIGHT PASS: no test target or data page points directly at main Supabase.');
 // Data engines are in-memory SQLite/PostgreSQL; browser requests are loopback/mock only.
 const result = spawnSync(process.execPath, ['--test', '--test-reporter=tap',
-  'tests/longevity/money.test.mjs', 'tests/longevity/high-risk.test.mjs', 'tests/longevity/guards.test.mjs', 'tests/release/structure.test.mjs', 'tests/recovery/integrity.test.mjs', 'tests/volume/edge-pagination.test.mjs', 'tests/volume/pagination.test.mjs', 'tests/upgrade.test.mjs', 'tests/rebuild.test.mjs', 'tests/storage-probe.test.mjs', 'tests/config.test.mjs', 'tests/cloud-config.test.mjs', 'tests/migration-inventory.test.mjs', 'tests/postgres-migration.test.mjs', 'tests/edge-function.test.mjs', 'tests/product-photo-edge.test.mjs', 'tests/product-photo-pending.test.mjs', 'tests/shipment-photo-pending.test.mjs', 'tests/pricing.test.mjs', 'tests/data.test.mjs', 'tests/smoke.test.mjs', 'tests/browser.test.mjs', 'tests/ui-acceptance.test.mjs'],
+  'tests/vendor-import.test.mjs', 'tests/taipei-period.test.mjs', 'tests/weekend-browser.test.mjs', 'tests/longevity/money.test.mjs', 'tests/longevity/high-risk.test.mjs', 'tests/longevity/guards.test.mjs', 'tests/release/structure.test.mjs', 'tests/recovery/integrity.test.mjs', 'tests/volume/edge-pagination.test.mjs', 'tests/volume/pagination.test.mjs', 'tests/upgrade.test.mjs', 'tests/rebuild.test.mjs', 'tests/storage-probe.test.mjs', 'tests/config.test.mjs', 'tests/cloud-config.test.mjs', 'tests/migration-inventory.test.mjs', 'tests/postgres-migration.test.mjs', 'tests/edge-function.test.mjs', 'tests/product-photo-edge.test.mjs', 'tests/product-photo-pending.test.mjs', 'tests/shipment-photo-pending.test.mjs', 'tests/pricing.test.mjs', 'tests/data.test.mjs', 'tests/smoke.test.mjs', 'tests/browser.test.mjs', 'tests/ui-acceptance.test.mjs'],
   { cwd: root, encoding: 'utf8', env: { ...process.env, TEST_MODE: 'offline' } });
 process.stdout.write(result.stdout || '');
 process.stderr.write(result.stderr || '');

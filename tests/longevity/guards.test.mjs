@@ -74,11 +74,11 @@ test('guard migration late conflict rolls back all its earlier DDL without rewri
   const db=new PGlite({extensions:{pgcrypto}});
   try {
     await db.exec(read('tests/rebuild/platform-contract.sql'));
-    for(const entry of manifest.migrations.slice(0,-1))await db.exec(read('database/rebuild/'+entry.file));
+    for(const entry of manifest.migrations.slice(0,manifest.migrations.findIndex(e=>e.file.includes("guard_retired_requests"))))await db.exec(read('database/rebuild/'+entry.file));
     await db.query("insert into public.products(id,name) values ($1,'Preserve')",[uuid(1)]);
     await db.exec('create table private.retired_product_photo_paths(storage_path text)');
     const before=await capture(db);
-    await assert.rejects(db.exec(read('database/rebuild/'+manifest.migrations.at(-1).file)),{code:'42P07'});await db.exec('rollback');
+    await assert.rejects(db.exec(read('database/rebuild/'+manifest.migrations.find(e=>e.file.includes("guard_retired_requests")).file)),{code:'42P07'});await db.exec('rollback');
     assert.deepEqual(await capture(db),before);
     assert.equal((await db.query("select to_regclass('private.retired_shipment_requests') as found")).rows[0].found,null);
     assert.equal((await db.query("select count(*)::int n from pg_trigger where tgname like 'shipments_request_%'")).rows[0].n,0);
