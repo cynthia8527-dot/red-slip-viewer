@@ -26,6 +26,11 @@
       "path": "database/upgrade/supabase/migrations/20261002154901_guard_retired_requests_and_product_photos.sql",
       "sha256": "40197777d30ec745b4275e82d42da388c8ecce2e52a4a365909b60754e145172",
       "source": "supabase/migrations/20261002154901_guard_retired_requests_and_product_photos.sql"
+    },
+    {
+      "path": "database/upgrade/supabase/migrations/20261003024225_atomic_vendor_workbook_import.sql",
+      "sha256": "5b8e5bde88436425747756892ced7a0d4392c5e21db43a1d101900a28cedb230",
+      "source": "supabase/migrations/20261003024225_atomic_vendor_workbook_import.sql"
     }
   ]
 }
