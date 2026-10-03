@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {rebuild} from './rebuild/replay.mjs';
 import {vendorImportRows} from '../data/vendor-import.js';
+import * as XLSX from 'xlsx';
 const admin='40000000-0000-4000-8000-000000000001';
 const rows=vendorImportRows([[],['A','總廠','Company','月結','123', '聯絡人','00123',null,'原址',null,'備註',null,'狀態'],['A-P2','二廠','Company',null,'123',null,null,null,'分廠址']]);
 test('workbook mapping preserves text, mail, inactive status and limits',()=>{
@@ -9,6 +10,18 @@ test('workbook mapping preserves text, mail, inactive status and limits',()=>{
  assert.equal(parsed[0].tax_id,'0012');assert.equal(parsed[0].phone,'01 23');assert.equal(parsed[0].billing_address,'Mail');assert.equal(parsed[0].is_active,false);
  assert.throws(()=>vendorImportRows([[]]),/沒有可匯入/);
  assert.throws(()=>vendorImportRows([[],...Array(5001).fill(['A','B'])]),/上限/);
+});
+test('actual XLSX and legacy XLS binary round trips preserve formatted identifiers and mapping',()=>{
+ for(const bookType of ['xlsx','xls']){
+  const book=XLSX.utils.book_new(),sheet=XLSX.utils.aoa_to_sheet([['代碼','簡稱'],['001','測試公司','測試抬頭',null,'00001234',null,1234,null,'台北 地址']]);
+  sheet.G2.z='00000000';
+  XLSX.utils.book_append_sheet(book,sheet,'客戶-通訊錄');XLSX.utils.book_append_sheet(book,XLSX.utils.aoa_to_sheet([['代碼','抬頭','地址'],['001','測試抬頭','帳單 地址']]),'工作表2');
+  const binary=XLSX.write(book,{type:'buffer',bookType});assert.ok(binary.length>1000);assert.notEqual(binary[0],123,'not JSON fixture');
+  const decoded=XLSX.read(binary,{type:'array'}),read=s=>XLSX.utils.sheet_to_json(s,{header:1,defval:null,raw:false});
+  const rows=vendorImportRows(read(decoded.Sheets['客戶-通訊錄']),read(decoded.Sheets['工作表2']));
+  assert.equal(rows[0].code,'001');assert.equal(rows[0].tax_id,'00001234');assert.equal(rows[0].phone,'00001234');assert.equal(rows[0].billing_address,'帳單 地址');
+  if(bookType==='xlsx')assert.throws(()=>XLSX.read(binary.subarray(0,64),{type:'array'}));
+ }
 });
 test('atomic import: failure rolls back parent and site; retries skip duplicates; no existing-row rewrite; RLS denies staff',async()=>{
  const db=await rebuild();
@@ -31,6 +44,8 @@ test('atomic import: failure rolls back parent and site; retries skip duplicates
   await assert.rejects(call([{...rows[0],code:'NEW'},{...rows[1],id:admin}]),/Unexpected workbook field/);
   assert.deepEqual(await snapshot(),before);
   for(const payload of [null,{},[],[{code:'x',short_name:'y',is_active:'true'}]])await assert.rejects(call(payload),{code:'22023'});
+  for(const payload of [Array(5001).fill(rows[0]),[{...rows[0],note:'x'.repeat(10001)}],[{...rows[0],is_active:null}],[{...rows[0],tax_id:{role:'admin'}}],[{...rows[0],code:'   '}],Array(300).fill({...rows[0],note:'x'.repeat(9000)})])await assert.rejects(call(payload),{code:'22023'});
+  assert.deepEqual(await snapshot(),before,'malformed/oversize requests cannot change earlier rows');
   await db.exec('reset role');
   await db.query("update public.profiles set role='staff' where user_id=$1",[admin]);await db.exec('set role authenticated');
   await assert.rejects(call(rows),{code:'42501'});

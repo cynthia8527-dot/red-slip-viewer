@@ -32,3 +32,11 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Run all offline tests (zero skips required)
         run: pnpm test
+      - name: Real isolated Auth, mail, PostgREST and concurrent import checks
+        run: |
+          export LONGEVITY_PG_BIN="$(pg_config --bindir)"
+          test -x "$LONGEVITY_PG_BIN/initdb"
+          docker pull supabase/gotrue:v2.196.0@sha256:c0c25187a6b835e65a6f6e6c6b39d090e832d40e6de5186f2c038e0411944232
+          docker pull postgrest/postgrest:v14.17@sha256:c9dc201e555f5d8e37e7f39cdd4df0229774996e213bfd7de8d10ac609030f2c
+          node tests/weekend-real-platform.mjs
+          node tests/longevity/native-import.mjs

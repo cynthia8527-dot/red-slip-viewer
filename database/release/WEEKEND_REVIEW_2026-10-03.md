@@ -1,6 +1,6 @@
 # Weekend reliability and login patch — review only
 
-Base: released main `8d6c52f3b81f13ffe83ef02772d55514ebc5ef5c`. Local branch: `fix/vendor-import-and-taipei-period`. No push, PR, merge, deployment, production SQL, credentials or Auth settings changed for this patch.
+Base: released main `8d6c52f3b81f13ffe83ef02772d55514ebc5ef5c`. Local branch: `fix/vendor-import-and-taipei-period`. A new draft PR and CI push were separately authorized after the initial local review. No merge, deployment, production SQL, credentials or Auth settings changed for this patch.
 
 ## Changes
 
@@ -18,11 +18,12 @@ Base: released main `8d6c52f3b81f13ffe83ef02772d55514ebc5ef5c`. Local branch: `f
 
 ## Evidence and limits
 
-- `node tests/run.mjs`: complete offline suite; includes money, upgrade/rebuild, recovery, photo/Edge contracts, existing workflow UI tests, and new import/date/login tests. Final run: 119 passed, 0 failed, 0 skipped; wall time 31.313 s. It uses real PGlite SQL with platform interfaces doubled; browser Auth responses are doubles, not real successful authentication.
+- `node tests/run.mjs`: complete offline suite; includes money, upgrade/rebuild, recovery, photo/Edge contracts, existing workflow UI tests, and new import/date/login tests. Final local run: 120 passed, 0 failed, 0 skipped; 32.355 seconds wall-clock. It uses real PGlite SQL with platform interfaces doubled; browser Auth responses are doubles, not real successful authentication.
 - `LONGEVITY_PG_BIN=/absolute/path/to/postgres/bin node tests/longevity/native-import.mjs`: creates its own disposable PostgreSQL cluster, Unix socket only, no remote URL accepted. PostgreSQL 17.11: actual two-connection commit/retry, rollback/retry, lock timeout and earlier manual writer cases PASS. 5,000 vendor inserts plus 5,000 retry rows PASS in 0.709 s; entire native run 6.382 s. These are local wall-clock observations, not production throughput promises.
 - New real-page browser cases: lost success response after SQL commit followed by reload/reimport; password failure/retry and magic fallback; reset send failure/retry; expired link; interrupted form/reload; mismatch/update failure/retry/success; inactive account and staff UI gates; recovery navigation/cancel; Taipei midnight/year/leap-month filtering, current-month following and stable manual history. Browser deliberately runs in America/Los_Angeles to catch accidental local-time use.
-- The browser XLSX decoder is a test double returning worksheet arrays; actual xlsx/xls binary decoding and arbitrary user workbooks are not verified. The unchanged pinned XLSX library is not upgraded here.
-- Full local Supabase Auth/PostgREST/Storage and email-link delivery have NOT been rerun for this new candidate. No Docker images are cached in this environment; the known heavy postgres image disk failure was not repeated. Earlier main CI success is not evidence that this new password flow passed real Auth. The existing full-platform CI can replay the new migration, but its historical logged-in browser suite does not yet test the new password recovery mail chain. Complete that isolated integration acceptance before release; do not silently push a new branch/PR to obtain CI permission.
+- The browser now decodes a real binary XLSX workbook with the actual pinned library; separate XLSX and legacy XLS round trips check leading zeros, formatted numeric phones, Unicode names and the mail sheet. Truncated XLSX and malformed/oversized RPC payloads are rejected. Arbitrary production workbooks are not sampled.
+- `tests/weekend-real-platform.mjs` now passes with genuine GoTrue 2.196.0, PostgREST 14.17 (digest-pinned images, total approximately 83 MB), native PostgreSQL 17.11 and the same browser SDK 2.116.0. SMTP is a loopback, in-memory sink. It tests passwordless account initial setup through actual recovery mail, reload/interruption, password rejection/retry, persisted cross-page login, profile RLS, real concurrent import, anonymous/staff denial, committed password update with lost response, expired link, resend, cancel, used-link rejection and original magic-link fallback. The final real-platform run passed in 5.000 seconds. Its local email cooldown is explicitly 1 ms and OTP lifetime 3,600 s for controlled tests; no production settings are changed. All containers, temporary DB and synthetic secrets are removed at exit. No heavy Supabase Postgres image is downloaded.
+- This lightweight runner is not the entire hosted platform: Storage scaffolding and platform roles are installed locally, `auth.uid()` uses the standard JWT-claims lookup, and Edge routes are not implemented. Full fresh/upgrade/volume/recovery CI remains a separate gate. Real SMTP/Auth here does not prove hosted email deliverability, redirect allowlist or exact production Auth-version parity. CI reuses the existing standard runner and contents:read permissions; no extra secrets or paid resources.
 - Supabase hosted/local advisors have not run on this candidate. Explicit SQL ACL/RLS/invoker tests pass; no production advisor/config mutation was used. Current official function/password documentation was consulted; changelog fetch was unavailable (markdown tool unsupported / local HTTP 403).
 
 ## Safe production acceptance after a separately approved release
@@ -45,4 +46,18 @@ node tests/run.mjs
 LONGEVITY_PG_BIN=/absolute/path/to/postgres/bin node tests/longevity/native-import.mjs
 ```
 
+The real Auth runner additionally needs Docker, native PostgreSQL and the two image digests pinned in `.github/workflows/offline-tests.yml`:
+
+```sh
+LONGEVITY_PG_BIN=/absolute/path/to/postgres/bin node tests/weekend-real-platform.mjs
+```
+
 No production URL is accepted by the native runner. The offline runner blocks non-loopback test targets. Synthetic fixtures use only `.invalid` accounts. Do not attach production credentials to these commands.
+
+## Security review: remaining release blocker
+
+The existing browser loader uses `xlsx@0.18.5`; matching it in binary tests exposed two high-severity dependency advisories: [prototype pollution (fixed >=0.19.3)](https://github.com/advisories/GHSA-4r6h-8v6p-xvw6) and [ReDoS (fixed >=0.20.2)](https://github.com/advisories/GHSA-5pgg-2g8v-p4x9). These are pre-existing production parser risks, not fixed by an atomic SQL transaction or UI-only admin check. The test-only pinned dependency does not replace the production loader. Do not label the security review clean or publish as fully hardened.
+
+[SheetJS official installation instructions](https://docs.sheetjs.com/docs/getting-started/installation/nodejs/) identify the official 0.20.3 tarball and explain that the npm registry stops at 0.18.5. Downloading both the official CDN tarball/module and official git archive returned HTTP 403 from this execution environment. No unofficial package/fork was substituted; no audit finding was suppressed. A verified official patched artifact plus binary/UI regression is required before publishing the import changes. Never test a crafted hostile workbook against production or accept arbitrary untrusted workbooks as a substitute for this fix.
+
+The migration adds an authenticated-callable RPC but preserves the existing active-admin-only write boundary using SECURITY INVOKER plus existing RLS and `private.is_factory_admin()`. Staff and inactive identities fail before table locks/writes; anonymous/service roles lack EXECUTE; caller-supplied IDs, role fields, objects in text fields, overlong fields, excessive row count and excessive payload size fail without partial state. This is a new API entry point to review, not a grant of vendor writes to additional users. Recovery redirect review adds only the exact `/account/` URL if needed, not a wildcard or authentication bypass. Password updates remain self-service through Auth with current-session validation and active profile checks in the UI; no privileged credential is shipped to browsers.

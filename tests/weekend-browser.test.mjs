@@ -5,7 +5,10 @@ import {readFile} from 'node:fs/promises';
 import {resolve,extname,sep} from 'node:path';
 import {chromium} from 'playwright-core';
 import {rebuild} from './rebuild/replay.mjs';
-// Real HTML/module execution and real SQL for imports. Auth and XLSX decoder are explicit doubles.
+import * as XLSX from 'xlsx';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url);
+// Real HTML, XLSX decoder and SQL for imports. Auth is an explicit double.
 const root=resolve(import.meta.dirname,'..'),uid='40000000-0000-4000-8000-000000000001';
 const sdk=`export function createClient(){
  let callback=()=>{};const session=()=>localStorage.getItem('test-session')?{user:{id:'${uid}',email:'synthetic@example.invalid'},access_token:'synthetic'}:null;
@@ -49,7 +52,7 @@ async function harness(fn){
   const context=await browser.newContext({timezoneId:'America/Los_Angeles'}),errors=[],blocked=[];
   await context.route('**/*',route=>{const u=new URL(route.request().url());
    if(u.hostname==='esm.sh')return route.fulfill({contentType:'text/javascript',body:sdk});
-   if(u.hostname==='cdn.jsdelivr.net')return route.fulfill({contentType:'text/javascript',body:'export function read(b){return JSON.parse(new TextDecoder().decode(b))};export const utils={sheet_to_json:s=>s}'});
+   if(u.hostname==='cdn.jsdelivr.net')return route.fulfill({contentType:'text/javascript',path:require.resolve('xlsx/xlsx.mjs')});
    if(u.origin===origin)return route.continue();
    if(u.origin==='http://127.0.0.1:54321'&&u.pathname==='/functions/v1/shipments')return route.fulfill({contentType:'application/json',headers:{'access-control-allow-origin':'*','access-control-allow-headers':'authorization'},body:JSON.stringify({shipments:state.shipments})});
    blocked.push(u.hostname);return route.abort();
@@ -60,7 +63,8 @@ async function harness(fn){
 }
 test('browser import lost response and reload retry: real SQL leaves exactly one company/site', {timeout:60000},()=>harness(async({page,origin,db,state})=>{
  await page.goto(origin+'/vendors/');await page.evaluate(()=>localStorage.setItem('test-session','yes'));await page.reload();await page.locator('#app').waitFor();
- const file={name:'synthetic.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:Buffer.from(JSON.stringify({SheetNames:['客戶-通訊錄'],Sheets:{'客戶-通訊錄':[[],['A','總廠','Company',null,'001'],['A-P2','二廠','Company',null,'001']]}}))};
+ const book=XLSX.utils.book_new();XLSX.utils.book_append_sheet(book,XLSX.utils.aoa_to_sheet([['代碼','簡稱'],['A','總廠','Company',null,'001'],['A-P2','二廠','Company',null,'001']]),'客戶-通訊錄');
+ const file={name:'synthetic.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:XLSX.write(book,{type:'buffer',bookType:'xlsx'})};
  state.loseImport=true;await page.locator('#importExcel').setInputFiles(file);await page.waitForFunction(()=>document.querySelector('#importState').textContent.includes('未取得'),null,{timeout:5000}).catch(async e=>{throw new Error((await page.locator('#importState').innerText())+' | '+e.message)});
  assert.equal((await db.query('select count(*)::int n from public.vendors')).rows[0].n,1);
  await page.reload();await page.locator('#app').waitFor();await page.locator('#importExcel').setInputFiles(file);await page.waitForFunction(()=>document.querySelector('#importState').textContent.includes('匯入完成'));
