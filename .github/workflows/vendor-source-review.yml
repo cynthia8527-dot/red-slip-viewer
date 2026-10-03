@@ -1,0 +1,35 @@
+name: Verify official SheetJS source
+on:
+  push:
+    branches: [fix/vendor-import-and-taipei-period]
+    paths: [.github/workflows/vendor-source-review.yml]
+permissions:
+  contents: read
+jobs:
+  fetch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Download unmodified official public distribution
+        run: |
+          mkdir source-review
+          curl --fail --silent --show-error --proto '=https' --tlsv1.2 --max-time 60 \
+            https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz \
+            -o source-review/xlsx-0.20.3.tgz
+          python3 - <<'PY'
+          import hashlib, json, pathlib, tarfile
+          p=pathlib.Path('source-review/xlsx-0.20.3.tgz')
+          assert p.stat().st_size < 10_000_000
+          with tarfile.open(p) as t:
+              package=json.load(t.extractfile('package/package.json'))
+              assert package['name']=='xlsx' and package['version']=='0.20.3'
+              members={name:hashlib.sha256(t.extractfile('package/'+name).read()).hexdigest() for name in ['xlsx.mjs','dist/cpexcel.full.mjs','LICENSE']}
+          evidence={'source':'https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz','name':'xlsx','version':'0.20.3','bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'members_sha256':members}
+          pathlib.Path('source-review/source.json').write_text(json.dumps(evidence,indent=2)+'\n')
+          print(json.dumps(evidence,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: official-sheetjs-0.20.3
+          path: source-review/
+          retention-days: 7
