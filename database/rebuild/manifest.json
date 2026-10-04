@@ -153,6 +153,17 @@
           "mode": "verbatim"
         }
       ]
+    },
+    {
+      "file": "supabase/migrations/20261003024225_atomic_vendor_workbook_import.sql",
+      "sha256": "5b8e5bde88436425747756892ced7a0d4392c5e21db43a1d101900a28cedb230",
+      "sources": [
+        {
+          "path": "supabase/migrations/20261003024225_atomic_vendor_workbook_import.sql",
+          "sha256": "5b8e5bde88436425747756892ced7a0d4392c5e21db43a1d101900a28cedb230",
+          "mode": "verbatim"
+        }
+      ]
     }
   ],
   "explicit_dependencies": [

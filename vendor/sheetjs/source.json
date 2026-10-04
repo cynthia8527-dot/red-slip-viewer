@@ -1,0 +1,14 @@
+{
+  "source": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
+  "name": "xlsx",
+  "version": "0.20.3",
+  "bytes": 2409319,
+  "sha256": "8dc73fc3b00203e72d176e85b50938627c7b086e607c682e8d3c22c02bb99fe8",
+  "members_sha256": {
+    "xlsx.mjs": "1a0fb062ee9781b13f6687371b202aaefc53b6ce55b530c027e01f9c087b77db",
+    "dist/cpexcel.full.mjs": "7a7bba23b6b6f23b5c69fbb631f78d1d455f74b57e4aa54e9a2f81a8ab844964",
+    "LICENSE": "4d2a38ac35cda06a555c84074a819d413339cd3691b822cae50f8f322fe01f64"
+  },
+  "verification_run": "https://github.com/cynthia8527-dot/red-slip-viewer/actions/runs/37092339794",
+  "artifact_id": 11263000805
+}

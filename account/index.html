@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>設定密碼｜工廠貨件系統</title>
+<style>
+*{box-sizing:border-box}[hidden]{display:none!important}body{font-family:system-ui,sans-serif;background:#f4f6f8;color:#202124;padding:20px}main{max-width:440px;margin:40px auto;background:white;padding:24px;border-radius:18px}p{line-height:1.6;color:#475467}label{display:block;margin-top:14px}input,button{width:100%;padding:12px;border-radius:10px;margin-top:8px;font-size:16px}input{border:1px solid #d7dbe2}button{border:0;background:#202124;color:white;font-weight:700;cursor:pointer}button:disabled{opacity:.5}a{display:inline-block;margin-top:18px;color:#254ea5}#message{background:#f4f6f8;padding:12px;border-radius:10px;overflow-wrap:anywhere}
+</style></head><body><main><h1>設定／重設密碼</h1>
+<p>第一次設定或忘記密碼，請先收取驗證信。密碼由你自行輸入，請勿傳給任何人。</p>
+<form id="requestForm"><label for="email">已授權的 Email</label><input id="email" type="email" autocomplete="email" required><button id="sendReset">寄送設定密碼連結</button></form>
+<form id="passwordForm" hidden><p id="accountEmail"></p><label for="password">新密碼（至少 8 個字元）</label><input id="password" type="password" autocomplete="new-password" minlength="8" required><label for="confirmPassword">再次輸入新密碼</label><input id="confirmPassword" type="password" autocomplete="new-password" minlength="8" required><button id="savePassword">儲存新密碼</button><button id="cancelReset" type="button">取消並登出</button></form>
+<p id="message" role="status">正在確認連結…</p><a href="../board/">返回登入／貨件系統</a>
+</main><script type="module">
+import {createClient} from 'https://esm.sh/@supabase/supabase-js@2.116.0';
+import {resolveConfig} from '../config.js';
+// Capture link errors before the SDK consumes the fragment. Never echo tokens or error_description.
+const callbackParams=new URLSearchParams(location.hash.slice(1)),queryParams=new URLSearchParams(location.search);
+const invalidLink=callbackParams.has('error')||callbackParams.has('error_code')||queryParams.has('error')||queryParams.has('error_code');
+const config=await resolveConfig();
+const client=createClient(config.supabaseUrl,config.supabaseKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+const $=id=>document.getElementById(id),message=text=>$('message').textContent=text;
+let busy=false,finished=false;
+function clearPasswords(){$('password').value='';$('confirmPassword').value=''}
+function requestMode(text){$('passwordForm').hidden=true;$('requestForm').hidden=false;clearPasswords();message(text)}
+async function checkSession(){
+ if(finished)return;
+ try{
+  const {data:{session},error}=await client.auth.getSession();
+  if(invalidLink||error||!session){requestMode('連結尚未驗證、已過期或已使用。請重新寄送設定密碼連結。');return}
+  const {data:profile,error:profileError}=await client.from('profiles').select('active').eq('user_id',session.user.id).maybeSingle();
+  if(profileError){requestMode('暫時無法確認帳號，請重新整理後再試。');return}
+  if(!profile?.active){await client.auth.signOut({scope:'local'});requestMode('此帳號尚未獲授權，請聯絡管理員。');return}
+  $('requestForm').hidden=true;$('passwordForm').hidden=false;$('accountEmail').textContent=session.user.email||'';
+  message('請設定新密碼；重新整理不會自動儲存。');
+ }catch{requestMode('暫時無法確認連結，請重新整理或重新寄信。')}
+}
+client.auth.onAuthStateChange(event=>{
+ if(event==='SIGNED_OUT'&&!finished)requestMode('登入已失效，請重新寄送設定密碼連結。');
+ if(event==='PASSWORD_RECOVERY')setTimeout(checkSession,0);
+});
+$('requestForm').onsubmit=async event=>{
+ event.preventDefault();if(busy)return;busy=true;$('sendReset').disabled=true;
+ try{
+  const {error}=await client.auth.resetPasswordForEmail($('email').value.trim(),{redirectTo:new URL('./',location.href).href});
+  if(error)throw error;
+  message('若此 Email 可設定密碼，將收到驗證信。請開啟最新一封；未收到可稍後重試。');
+ }catch{message('暫時無法寄送，請稍後重試；也可返回使用登入連結。')}
+ finally{busy=false;$('sendReset').disabled=false}
+};
+$('passwordForm').onsubmit=async event=>{
+ event.preventDefault();if(busy)return;
+ if($('password').value!==$('confirmPassword').value){message('兩次密碼不一致，請重新確認。');return}
+ busy=true;$('savePassword').disabled=true;$('cancelReset').disabled=true;
+ try{
+  const {data:{user},error:sessionError}=await client.auth.getUser();
+  if(sessionError||!user)throw new Error('session');
+  const {data:profile,error:profileError}=await client.from('profiles').select('active').eq('user_id',user.id).maybeSingle();
+  if(profileError||!profile?.active)throw new Error('profile');
+  const {error}=await client.auth.updateUser({password:$('password').value});
+  if(error)throw error;
+  finished=true;clearPasswords();$('passwordForm').hidden=true;
+  const {error:logoutError}=await client.auth.signOut({scope:'local'});
+  message(logoutError?'密碼已更新；目前裝置登出未完成，請返回貨件系統登出。':'密碼已更新，請返回登入頁，用新密碼登入。');
+ }catch{message('未確認密碼更新成功。連結可能已過期或密碼不符規則；請重試，或重新寄送連結。若剛才網路中斷，可先返回用新密碼登入確認。')}
+ finally{clearPasswords();busy=false;$('savePassword').disabled=false;$('cancelReset').disabled=false}
+};
+$('cancelReset').onclick=async()=>{if(busy)return;busy=true;try{const {error}=await client.auth.signOut({scope:'local'});if(error)throw error;requestMode('已取消。需要時可重新寄送連結。')}catch{message('登出未完成，請稍後重試。')}finally{clearPasswords();busy=false}};
+window.addEventListener('pagehide',clearPasswords);
+await checkSession();
+if(location.hash)history.replaceState(null,'',location.pathname+location.search);
+</script></body></html>
