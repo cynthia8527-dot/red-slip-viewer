@@ -23,18 +23,21 @@ h1{margin:0;font-size:28px}.sub{margin:4px 0 0;color:#667085;font-size:13px;line
 .adminOnly{display:none}.isAdmin .adminOnly{display:inline-flex}
 .printBar{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:10px;padding:10px 11px;border-radius:12px;background:#f8fafc;border:1px solid #e2e6ea}.printBar .left{font-size:13px;font-weight:800}.printBar .actions{margin-left:auto}.printBar .btn:disabled{opacity:.45;cursor:not-allowed}
 #printSheet{display:none}
+#printSheet{width:210mm;height:297mm;background:#fff;color:#000}
+#printSheet.measuring{display:block;position:fixed;left:0;top:0;visibility:hidden;pointer-events:none}
+#printSheet .printHalf{width:210mm;height:148.5mm;padding:10mm 12mm;display:flex;flex-direction:column;justify-content:safe center;border-bottom:.25mm dashed #bbb}
+#printSheet .printHalf:last-child{border-bottom:0}
+#printSheet .printHalf>*{flex-shrink:0;overflow-wrap:anywhere}
+#printSheet .pname{font-size:32pt;font-weight:900;line-height:1.2;margin-bottom:5mm}
+#printSheet .pline{font-size:22pt;font-weight:700;line-height:1.3;margin:1mm 0}
+#printSheet .paddress{font-size:28pt;font-weight:800;line-height:1.25;margin-top:4mm}
+#printSheet .pnote{font-size:14pt;line-height:1.3;color:#333;margin-top:4mm}
 @media(max-width:650px){.grid,.info,.formgrid{grid-template-columns:1fr}.box.full,.full{grid-column:1}.head .tools{width:100%}.head .tools .btn{flex:1}h1{font-size:24px}}
 @media print{
  @page{size:A4 portrait;margin:0}
  body{background:#fff}
  body>*:not(#printSheet){display:none!important}
  #printSheet{display:block!important;width:210mm;height:297mm;background:#fff;color:#000}
- .printHalf{box-sizing:border-box;width:210mm;height:148.5mm;padding:18mm 16mm 14mm;display:flex;flex-direction:column;justify-content:center;border-bottom:.25mm dashed #bbb;overflow:hidden}
- .printHalf:last-child{border-bottom:0}
- .pname{font-size:26pt;font-weight:800;margin-bottom:10mm}
- .pline{font-size:17pt;line-height:1.55;margin:2mm 0}
- .paddress{font-size:22pt;font-weight:700;line-height:1.5;margin-top:7mm}
- .pnote{font-size:12pt;color:#444;margin-top:7mm}
 }
 </style>
 </head>
@@ -163,6 +166,17 @@ function printLocations(items){
   const halves=document.querySelectorAll('.printHalf');
   halves[0].innerHTML=locationPrintHtml(items[0]);
   halves[1].innerHTML=locationPrintHtml(items[1]);
+  // Measure the same physical layout before printing; never silently clip a location.
+  const sheet=$('printSheet');
+  sheet.classList.add('measuring');
+  const oversized=[...halves].some(half=>{
+    const last=half.lastElementChild;
+    if(!last)return false;
+    const style=getComputedStyle(half);
+    return last.getBoundingClientRect().bottom>half.getBoundingClientRect().bottom-parseFloat(style.paddingBottom)-parseFloat(style.borderBottomWidth)+1;
+  });
+  sheet.classList.remove('measuring');
+  if(oversized){alert('這筆地點資訊過長，放大字體後無法完整放入 A4 半張。請先確認列印版面；本次未列印，以免內容被裁切。');return}
   window.print();
 }
 function printSelectedLocations(){
