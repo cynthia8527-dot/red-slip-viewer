@@ -23,6 +23,8 @@ h1{margin:0;font-size:28px}.sub{margin:4px 0 0;color:#667085;font-size:13px;line
 .adminOnly{display:none}.isAdmin .adminOnly{display:inline-flex}
 .printBar{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:10px;padding:10px 11px;border-radius:12px;background:#f8fafc;border:1px solid #e2e6ea}.printBar .left{font-size:13px;font-weight:800}.printBar .actions{margin-left:auto}.printBar .btn:disabled{opacity:.45;cursor:not-allowed}
 #printSheet{display:none}
+.selectedLocations{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;padding:10px 11px;border:1px solid #e2e6ea;border-radius:12px;background:#f8fafc}
+.selectedLocations .btn{min-height:44px;max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:left}
 #printSheet{width:210mm;height:297mm;background:#fff;color:#000}
 #printSheet.measuring{display:block;position:fixed;left:0;top:0;visibility:hidden;pointer-events:none}
 #printSheet .printHalf{width:210mm;height:148.5mm;padding:10mm 12mm;display:flex;flex-direction:column;justify-content:safe center;border-bottom:.25mm dashed #bbb}
@@ -63,6 +65,7 @@ h1{margin:0;font-size:28px}.sub{margin:4px 0 0;color:#667085;font-size:13px;line
       <button id="printSelected" class="btn primary" disabled>列印 A4</button>
     </div>
   </div>
+  <div id="selectedLocations" class="selectedLocations" role="group" aria-label="已選地點，點名稱查看地址" hidden></div>
   <section id="grid" class="grid"></section>
 </section>
 </main>
@@ -138,6 +141,11 @@ function updateSelectionBar(){
   $('selectedState').textContent='已選 '+n+' / 2 個'+(n===1?'（下半張會留白）':n===2?'（上下各一個）':'');
   $('clearSelected').disabled=n===0;
   $('printSelected').disabled=n===0;
+  const items=[...selectedIds].map(id=>rows.find(x=>x.id===id)).filter(Boolean);
+  $('selectedLocations').hidden=items.length===0;
+  $('selectedLocations').innerHTML=items.map(x=>`<button type="button" class="btn secondary" data-open-selected="${x.id}">${esc(x.name)}</button>`).join('');
+  $('selectedLocations').querySelectorAll('[data-open-selected]').forEach(el=>el.onclick=()=>{openDetail(el.dataset.openSelected);$('detail').scrollIntoView({block:'start'})});
+  if($('selectOneBtn')&&selected)$('selectOneBtn').textContent=selectedIds.has(selected.id)?'✓ 已選':'選這筆';
 }
 function openDetail(id){
   const x=rows.find(r=>r.id===id);if(!x)return;selected=x;$('detail').hidden=false;
