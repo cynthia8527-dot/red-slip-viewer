@@ -17,6 +17,9 @@ $('applyBtn').addEventListener('click',applyAccounting);
 $('confirmBtn').addEventListener('click',()=>saveDecision('確認完成'));
 $('manualBtn').addEventListener('click',()=>saveDecision('待人工確認'));
 $('exportBtn').addEventListener('click',exportLogs);
+$('previewProcessBtn').addEventListener('click',previewProcess);
+for(const id of fields)$(id).addEventListener('input',()=>{$('confirmedProcess').value='';invalidateProcessPreview();});
+$('confirmedProcess').addEventListener('input',invalidateProcessPreview);
 $('clearBtn').addEventListener('click',()=>{if(confirm('要清除這個瀏覽器裡的校正紀錄嗎？')){state.logs=[];localStorage.removeItem('redSlipViewerLogs');$('status').textContent='已清除本機校正紀錄。';}});
 
 async function startViewer(){
@@ -59,7 +62,31 @@ async function renderCurrent(){
 }
 
 function move(delta){const n=state.index+delta;if(n<0||n>=state.entries.length)return;state.index=n;state.zoom=1;state.rotation=0;renderCurrent();}
-function clearForm(){fields.forEach(f=>$(f).value='');$('notes').value='';state.lastMatch=null;$('applyBtn').disabled=true;$('accountingResult').textContent='找到會計資料後會顯示在這裡。';$('matchBadge').className='badge neutral';$('matchBadge').textContent='尚未比對';$('saveStatus').textContent='';}
+function clearForm(){fields.forEach(f=>$(f).value='');$('confirmedProcess').value='';invalidateProcessPreview();$('notes').value='';state.lastMatch=null;$('applyBtn').disabled=true;$('accountingResult').textContent='找到會計資料後會顯示在這裡。';$('matchBadge').className='badge neutral';$('matchBadge').textContent='尚未比對';$('saveStatus').textContent='';}
+
+function invalidateProcessPreview(){ $('processPreview').textContent='尚未預覽。只供核對，不改欄位、帳務或報價。'; }
+function currentProcessSource(){
+  const item=$('item').value.trim();
+  return {customer:{name:$('customer').value.trim()},slip_id:$('redNo').value.trim(),weight_kg:$('weight').value,billing_unit:$('unit').value,unit_price:$('price').value,item_text:item,
+    person_process:$('confirmedProcess').value,explicit_process:['熱處理','研磨','磁振','研亮','研加亮'].includes(item)?item:''};
+}
+async function previewProcess(){
+  const source=currentProcessSource(),key=JSON.stringify(source);$('previewProcessBtn').disabled=true;
+  try{
+    const {classifyHeatGrind}=await import('../data/heat-grind-classification.js');
+    if(JSON.stringify(currentProcessSource())!==key)return;
+    // This local viewer has no verified customer UUID / original-line mapping.
+    // Do not treat matching text, accounting rows or duplicate scans as a price pair.
+    const {decision}=classifyHeatGrind([source])[0];
+    let message;
+    if(decision.kind==='person_specified')message='已確認：'+decision.process+'（依上方人工選擇）。';
+    else if(decision.kind==='explicit_process')message='明寫工法：'+decision.process+'。';
+    else if(decision.kind==='unit_hint')message=decision.process?'待確認：批通常偏熱處理，仍需看原單。':'待確認：桶可能是研磨或磁振，無法只靠單位決定。';
+    else message='待確認：請依原單或已核對價目確認工法；不以價格高低猜配。';
+    $('processPreview').textContent=message+' 僅預覽，不改原欄位、校正紀錄、帳務或報價。';
+  }catch{ $('processPreview').textContent='判讀暫時無法載入，請依原單人工確認。原資料未變更。'; }
+  finally{ $('previewProcessBtn').disabled=false; }
+}
 
 async function loadExcels(){
   state.excelRows=[];
@@ -102,7 +129,7 @@ function searchAccounting(){
   const m=matches[0];state.lastMatch=extractFields(m);$('applyBtn').disabled=false;$('matchBadge').className='badge good';$('matchBadge').textContent=`找到 ${matches.length} 筆`;
   $('accountingResult').innerHTML=`<div><strong>來源：</strong>${esc(m.file)} / ${esc(m.sheet)} / 第 ${m.row} 列</div>`+Object.entries(state.lastMatch).filter(([k])=>k!=='source').map(([k,v])=>`<div><strong>${labelFor(k)}：</strong>${esc(v||'—')}</div>`).join('');
 }
-function applyAccounting(){if(!state.lastMatch)return;fields.forEach(f=>{if(state.lastMatch[f]!==undefined)$(f).value=state.lastMatch[f];});$('saveStatus').textContent='已套用會計欄位，請看紅單確認。';}
+function applyAccounting(){if(!state.lastMatch)return;fields.forEach(f=>{if(state.lastMatch[f]!==undefined)$(f).value=state.lastMatch[f];});$('confirmedProcess').value='';invalidateProcessPreview();$('saveStatus').textContent='已套用會計欄位，請看紅單確認。';}
 function saveDecision(status){
   const e=state.entries[state.index];
   const rec={time:new Date().toLocaleString('zh-TW'),status,file:e.name,page:e.type==='pdf'?e.page:'',...Object.fromEntries(fields.map(f=>[f,$(f).value.trim()])),notes:$('notes').value.trim(),accountingSource:state.lastMatch?.source||''};

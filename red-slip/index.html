@@ -73,7 +73,10 @@
           <label>材質<input id="material" /></label>
           <div class="two"><label>重量<input id="weight" /></label><label>單位<input id="unit" /></label></div>
           <label>單價<input id="price" /></label>
+          <label>明寫／已確認工法<select id="confirmedProcess"><option value="">未確認（不依價格決定）</option><option>熱處理</option><option>研磨</option><option>磁振</option><option>研亮</option><option>研加亮</option><option>混合工序</option></select></label>
         </div>
+        <div class="actions pad"><button id="previewProcessBtn" type="button">預覽工法判讀</button></div>
+        <div id="processPreview" class="result" role="status" aria-label="工法判讀結果">尚未預覽。只供核對，不改欄位、帳務或報價。</div>
         <div class="actions pad">
           <button id="searchBtn">用紅單號找會計答案</button>
           <button id="applyBtn" disabled>套用會計欄位</button>
